@@ -34,7 +34,7 @@ export class DiscussionMediatorService {
 
     try {
       const mediatorResponse = await this.modelCallerService.callLLM('auto', mediatorPrompt);
-      return this.parseMediatorResponse(mediatorResponse, availableModels);
+      return this.parseMediatorResponse(mediatorResponse, availableModels, existingComments);
     } catch (error) {
       this.logger.error(`Mediator failed: ${error.message}`);
       // Fallback decision
@@ -51,43 +51,84 @@ export class DiscussionMediatorService {
     existingComments: any[],
     availableModels: string[]
   ): string {
-    let commentsContext = '';
+    // Extract proposal ID from title
+    const proposalId = this.extractProposalId(title);
     
+    // Build complete comments context with full content
+    let commentsContext = '';
     if (existingComments.length > 0) {
-      commentsContext = '\n\nCOMENTÁRIOS EXISTENTES:\n';
+      commentsContext = '\n\nHISTÓRICO COMPLETO DA DISCUSSÃO:\n';
       existingComments.forEach((comment, index) => {
-        commentsContext += `${index + 1}. ${comment.authorId} (${comment.type}): ${comment.content}\n\n`;
+        commentsContext += `${index + 1}. MODELO: ${comment.authorId}\n`;
+        commentsContext += `   TIPO: ${comment.type}\n`;
+        commentsContext += `   CONTEÚDO COMPLETO:\n   ${comment.content}\n\n`;
       });
     }
 
+    // Get unique models that have already commented
+    const commentedModels = [...new Set(existingComments.map(c => c.authorId))];
+    const lastCommenter = existingComments.length > 0 ? existingComments[existingComments.length - 1].authorId : null;
+    
+    // Filter available models to avoid consecutive comments
+    const availableForNext = availableModels.filter(m => m !== 'auto' && m !== lastCommenter);
+
     return `Você é o mediador 'auto' de uma discussão de governança. Sua função é analisar a discussão atual e decidir qual modelo deve comentar a seguir para criar uma discussão rica e construtiva.
 
-PROPOSTA EM DISCUSSÃO:
-Título: ${title}
-Conteúdo: ${content.substring(0, 500)}${content.length > 500 ? '...' : ''}
+CONTEXTO COMPLETO DA PROPOSTA:
+- ID: ${proposalId}
+- TÍTULO: ${title}
+- CONTEÚDO COMPLETO DA PROPOSTA:
+${typeof content === 'string' ? content : JSON.stringify(content, null, 2)}
+
+SITUAÇÃO ATUAL DA DISCUSSÃO:
+- Total de comentários: ${existingComments.length}
+- Modelos que já comentaram: ${commentedModels.length > 0 ? commentedModels.join(', ') : 'Nenhum'}
+- Último comentador: ${lastCommenter || 'Nenhum'}
 ${commentsContext}
 
-MODELOS DISPONÍVEIS: ${availableModels.join(', ')}
+MODELOS DISPONÍVEIS PARA PRÓXIMO COMENTÁRIO: ${availableForNext.join(', ')}
 
-INSTRUÇÕES:
-1. Analise os comentários existentes e identifique lacunas na discussão
-2. Escolha o próximo modelo mais adequado para adicionar valor
-3. Crie um prompt específico que incentive esse modelo a responder aos pontos levantados
-4. Evite repetir modelos que já comentaram recentemente
+INSTRUÇÕES PARA MEDIAÇÃO:
+1. Analise TODA a proposta e TODOS os comentários existentes
+2. Identifique lacunas na discussão que precisam ser abordadas
+3. Escolha o modelo mais adequado para adicionar valor único
+4. EVITE escolher o último modelo que comentou (${lastCommenter || 'N/A'})
+5. Crie um prompt específico e completo para o modelo escolhido
+6. Inclua no prompt TODA informação necessária (proposta completa + contexto)
 
-RESPONDA NO FORMATO:
+IMPORTANTE: O modelo escolhido NÃO tem acesso a arquivos externos ou comandos de busca. 
+Forneça TODAS as informações necessárias no PROMPT_ESPECÍFICO.
+
+RESPONDA EXATAMENTE NO FORMATO:
 MODELO_ESCOLHIDO: [id do modelo]
-REASONING: [sua análise do porquê escolheu este modelo]
-PROMPT_ESPECÍFICO: [prompt direcionado para o modelo escolhido]
+REASONING: [sua análise detalhada do porquê escolheu este modelo]
+PROMPT_ESPECÍFICO: [prompt completo com TODA informação necessária para análise]
 FASE_DISCUSSÃO: [initial|analysis|debate|consensus|conclusion]
 
-Seja estratégico na escolha para criar uma discussão dinâmica entre os modelos.`;
+Seja estratégico na escolha para criar uma discussão dinâmica e rica entre os modelos.`;
+  }
+
+  /**
+   * Extract proposal ID from title
+   */
+  private extractProposalId(title: string): string {
+    const match = title.match(/P(\d+)/i);
+    if (match) {
+      return `P${match[1].padStart(3, '0')}`;
+    }
+    
+    const numberMatch = title.match(/(\d+)/);
+    if (numberMatch) {
+      return `P${numberMatch[1].padStart(3, '0')}`;
+    }
+    
+    return 'UNKNOWN';
   }
 
   /**
    * Parse mediator response to extract decision
    */
-  private parseMediatorResponse(response: string, availableModels: string[]): MediatorDecision {
+  private parseMediatorResponse(response: string, availableModels: string[], existingComments: any[] = []): MediatorDecision {
     const lines = response.split('\n');
     let nextModel = '';
     let reasoning = '';
@@ -111,15 +152,28 @@ Seja estratégico na escolha para criar uma discussão dinâmica entre os modelo
       }
     }
 
+    // Get the last commenter to avoid consecutive comments
+    const lastCommenter = existingComments.length > 0 ? existingComments[existingComments.length - 1].authorId : null;
+    
     // Validate chosen model
     if (!nextModel || !availableModels.includes(nextModel)) {
       this.logger.warn(`Invalid model chosen: ${nextModel}, using fallback`);
-      nextModel = availableModels.find(m => m !== 'auto') || availableModels[0];
+      nextModel = availableModels.find(m => m !== 'auto' && m !== lastCommenter) || availableModels[0];
+    }
+    
+    // Prevent consecutive comments from same model
+    if (nextModel === lastCommenter) {
+      this.logger.warn(`Preventing consecutive comment from ${nextModel}`);
+      const alternativeModel = availableModels.find(m => m !== 'auto' && m !== lastCommenter);
+      if (alternativeModel) {
+        nextModel = alternativeModel;
+        reasoning = `Evitando comentários consecutivos, escolhido ${nextModel}`;
+      }
     }
 
     // Ensure we have a contextual prompt
     if (!contextualPrompt) {
-      contextualPrompt = `Analise esta proposta e forneça sua perspectiva técnica especializada, considerando os comentários já feitos por outros modelos.`;
+      contextualPrompt = this.createComprehensivePrompt(existingComments, nextModel);
     }
 
     return {
@@ -134,22 +188,76 @@ Seja estratégico na escolha para criar uma discussão dinâmica entre os modelo
    * Create fallback decision when mediator fails
    */
   private createFallbackDecision(existingComments: any[], availableModels: string[]): MediatorDecision {
-    // Get models that haven't commented yet
+    // Get the last commenter to avoid consecutive comments from same model
+    const lastCommenter = existingComments.length > 0 ? existingComments[existingComments.length - 1].authorId : null;
+    
+    // Get models that haven't commented yet, excluding 'auto' and last commenter
     const commentedModels = existingComments.map(c => c.authorId);
-    const availableForComment = availableModels.filter(m => 
-      m !== 'auto' && !commentedModels.includes(m)
+    let availableForComment = availableModels.filter(m => 
+      m !== 'auto' && m !== lastCommenter && !commentedModels.includes(m)
     );
+
+    // If no unused models, allow models that have commented but not the last one
+    if (availableForComment.length === 0) {
+      availableForComment = availableModels.filter(m => 
+        m !== 'auto' && m !== lastCommenter
+      );
+    }
+
+    // If still no models (shouldn't happen), use any model except auto and last commenter
+    if (availableForComment.length === 0) {
+      availableForComment = availableModels.filter(m => m !== 'auto' && m !== lastCommenter);
+    }
 
     const nextModel = availableForComment.length > 0 
       ? availableForComment[0] 
       : availableModels.find(m => m !== 'auto') || 'gpt-5';
 
+    // Create comprehensive contextual prompt for fallback
+    const contextualPrompt = this.createComprehensivePrompt(existingComments, nextModel);
+
     return {
       nextModel,
-      contextualPrompt: 'Analise esta proposta e forneça sua perspectiva técnica, considerando os comentários anteriores.',
-      reasoning: 'Seleção automática para continuar discussão',
+      contextualPrompt,
+      reasoning: 'Análise automática para diversificar perspectivas',
       discussionPhase: existingComments.length === 0 ? 'initial' : 'analysis'
     };
+  }
+
+  /**
+   * Create comprehensive prompt with full context for models
+   */
+  private createComprehensivePrompt(existingComments: any[], modelId: string): string {
+    let commentsHistory = '';
+    
+    if (existingComments.length > 0) {
+      commentsHistory = '\n\nHISTÓRICO COMPLETO DOS COMENTÁRIOS ANTERIORES:\n';
+      existingComments.forEach((comment, index) => {
+        commentsHistory += `${index + 1}. MODELO: ${comment.authorId}\n`;
+        commentsHistory += `   ANÁLISE: ${comment.content}\n\n`;
+      });
+      commentsHistory += 'IMPORTANTE: Considere todos os comentários acima em sua análise. Adicione sua perspectiva única sem repetir pontos já abordados.\n';
+    }
+
+    return `Você é ${modelId} participando de uma discussão técnica de governança.
+
+INSTRUÇÕES ESPECÍFICAS:
+- Você NÃO tem acesso a arquivos externos ou comandos de busca
+- TODAS as informações necessárias estão fornecidas abaixo
+- Forneça análise técnica direta em 100-150 palavras
+- Foque em aspectos únicos que outros modelos não abordaram
+- NÃO peça informações adicionais - analise com base no conteúdo fornecido
+
+${commentsHistory}
+
+Forneça sua análise técnica especializada considerando:
+1. Viabilidade técnica da implementação
+2. Arquitetura e integração com sistemas existentes
+3. Considerações de segurança e performance
+4. Riscos e benefícios específicos
+5. Recomendações práticas para implementação
+
+Responda DIRETAMENTE em português brasileiro com sua análise técnica.`;
   }
 
   /**
@@ -180,10 +288,11 @@ COMENTÁRIOS EXISTENTES (${existingComments.length}):
 ${existingComments.map((c, i) => `${i + 1}. ${c.authorId}: ${c.content.substring(0, 300)}${c.content.length > 300 ? '...' : ''}`).join('\n')}
 
 REGRAS:
-- Se há menos de 3 comentários: CONTINUAR
+- Se há menos de 4 comentários: CONTINUAR
 - Se há diversidade de perspectivas: CONTINUAR  
 - Se discussão está repetitiva: PARAR
 - Se há consenso claro: PARAR
+- Se apenas 1-2 modelos comentaram: CONTINUAR
 
 RESPONDA APENAS:
 SIM - se deve continuar
@@ -206,9 +315,10 @@ Motivo: [máximo 20 palavras]`;
                  lowerResponse.includes('stop')) {
         shouldContinue = false;
       } else {
-        // If no clear decision, be more permissive - continue if we have few comments
-        shouldContinue = existingComments.length < 4;
-        this.logger.warn(`Mediator gave unclear response: "${response.substring(0, 100)}", defaulting to ${shouldContinue ? 'continue' : 'stop'}`);
+        // If no clear decision, be more permissive - continue if we have few comments or few unique models
+        const uniqueModels = new Set(existingComments.map(c => c.authorId)).size;
+        shouldContinue = existingComments.length < 4 || uniqueModels < 3;
+        this.logger.warn(`Mediator gave unclear response: "${response.substring(0, 100)}", defaulting to ${shouldContinue ? 'continue' : 'stop'} (${existingComments.length} comments, ${uniqueModels} models)`);
       }
       
       return {

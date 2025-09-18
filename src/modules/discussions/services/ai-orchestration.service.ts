@@ -22,6 +22,7 @@ export interface OrchestrationConfig {
   enabledProviders: string[];
   commentTypes: CommentType[];
   systemPrompt: string;
+  proposalId?: string;
 }
 
 @Injectable()
@@ -131,7 +132,7 @@ Responda em português brasileiro, sendo direto e técnico.`
     const selectedModels = this.selectModelsForDiscussion(finalConfig.maxModels);
     
     // Create discussion prompt
-    const discussionPrompt = this.createDiscussionPrompt(proposalTitle, proposalContent);
+    const discussionPrompt = this.createDiscussionPrompt(proposalTitle, proposalContent, config.proposalId);
     
     // Orchestrate comments in parallel
     const commentPromises = selectedModels.map(async (model, index) => {
@@ -187,15 +188,18 @@ Responda em português brasileiro, sendo direto e técnico.`
         throw new Error('Empty or too short response');
       }
 
+      // Clean response from model commands
+      const cleanedResponse = this.cleanModelResponse(response.trim());
+      
       // Determine comment type based on response content
-      const commentType = this.determineCommentType(response);
+      const commentType = this.determineCommentType(cleanedResponse);
       
       // The actual comment creation will be handled by the DiscussionsService
       // We return the data for the caller to create the comment
       return {
         authorId: model.id,
         type: commentType,
-        content: response.trim(),
+        content: cleanedResponse,
         metadata: {
           generatedBy: 'ai-orchestration',
           modelProvider: model.provider,
@@ -501,15 +505,85 @@ Responda em português brasileiro, sendo direto e técnico.`
   /**
    * Create discussion prompt
    */
-  private createDiscussionPrompt(title: string, content: string): string {
+  private createDiscussionPrompt(title: string, content: string, proposalId?: string): string {
+    const extractedId = proposalId || this.extractProposalId(title);
+    
     return `${this.defaultConfig.systemPrompt}
 
-PROPOSTA PARA ANÁLISE:
-Título: ${title}
+PROPOSTA ESPECÍFICA PARA ANÁLISE:
+- ID: ${extractedId}
+- Título: ${title}
+- Localização: governance/proposals/*/${extractedId}*.json
+- Conteúdo: Fornecido abaixo (NÃO busque arquivos externos)
 
-Conteúdo: ${typeof content === 'string' ? content : JSON.stringify(content)}
+IMPORTANTE: 
+- Analise APENAS esta proposta específica
+- NÃO busque arquivos externos (Read, Grepped, Searched files)
+- NÃO use comandos de busca - todo conteúdo necessário está fornecido
+- Responda DIRETAMENTE com sua análise técnica
 
-Por favor, forneça sua análise e comentário sobre esta proposta de governança.`;
+CONTEÚDO COMPLETO DA PROPOSTA ${extractedId}:
+${typeof content === 'string' ? content : JSON.stringify(content, null, 2)}
+
+Forneça sua análise técnica focando em viabilidade, arquitetura, segurança e implementação.`;
+  }
+
+  /**
+   * Clean model response from search commands and artifacts
+   */
+  private cleanModelResponse(response: string): string {
+    if (!response) return '';
+    
+    const lines = response.split('\n');
+    const cleanedLines = [];
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip lines that are model commands or artifacts
+      if (trimmedLine.startsWith('Read ') ||
+          trimmedLine.startsWith('Grepped ') ||
+          trimmedLine.startsWith('Searched ') ||
+          trimmedLine.startsWith('Search ') ||
+          trimmedLine.includes('Searched files') ||
+          trimmedLine.includes('I\'ll search') ||
+          trimmedLine.includes('I\'ll open') ||
+          trimmedLine.includes('I\'ll locate') ||
+          trimmedLine.includes('Vou procurar') ||
+          trimmedLine.includes('Vou localizar') ||
+          trimmedLine.includes('Vou buscar') ||
+          trimmedLine.match(/^[A-Z][a-z]+ \([^)]+\)$/) || // Skip pattern like "Read (filename)"
+          trimmedLine === '' && cleanedLines.length === 0) { // Skip empty lines at start
+        continue;
+      }
+      
+      cleanedLines.push(line);
+    }
+    
+    // Join and clean up extra whitespace
+    let cleaned = cleanedLines.join('\n').trim();
+    
+    // Remove multiple consecutive newlines
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    return cleaned;
+  }
+
+  /**
+   * Extract proposal ID from title
+   */
+  private extractProposalId(title: string): string {
+    const match = title.match(/P(\d+)/i);
+    if (match) {
+      return `${match[1].padStart(3, '0')}`;
+    }
+    
+    const numberMatch = title.match(/(\d+)/);
+    if (numberMatch) {
+      return `${numberMatch[1].padStart(3, '0')}`;
+    }
+    
+    return 'UNKNOWN';
   }
 
   /**
