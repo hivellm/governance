@@ -1,5 +1,6 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import Database from 'better-sqlite3';
+const Database = require('better-sqlite3');
+import type * as DatabaseTypes from 'better-sqlite3';
 import { join } from 'path';
 import { existsSync, readFileSync } from 'fs';
 import { ConfigService } from '../config/config.service';
@@ -7,8 +8,8 @@ import { ConfigService } from '../config/config.service';
 @Injectable()
 export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(DatabaseService.name);
-  private database: Database.Database;
-  private statements: Map<string, Database.Statement> = new Map();
+  private database: DatabaseTypes.Database;
+  private statements: Map<string, DatabaseTypes.Statement> = new Map();
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -130,6 +131,22 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         completed_at DATETIME
       );
+      
+      -- BIP-06 Advanced Features: Automated Voting Sessions
+      CREATE TABLE IF NOT EXISTS voting_sessions (
+        id TEXT PRIMARY KEY,
+        proposal_id TEXT NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+        status TEXT NOT NULL CHECK (status IN ('active', 'finalized', 'cancelled')),
+        config TEXT NOT NULL, -- JSON object with voting configuration
+        started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        deadline DATETIME NOT NULL,
+        eligible_agents TEXT DEFAULT '[]', -- JSON array of agent IDs
+        votes TEXT DEFAULT '[]', -- JSON array of vote records
+        results TEXT, -- JSON object with results
+        finalized_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
 
       -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_proposals_status ON proposals(status);
@@ -141,6 +158,9 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       CREATE INDEX IF NOT EXISTS idx_votes_proposal ON votes(proposal_id);
       CREATE INDEX IF NOT EXISTS idx_votes_agent ON votes(agent_id);
       CREATE INDEX IF NOT EXISTS idx_execution_logs_proposal ON execution_logs(proposal_id);
+      CREATE INDEX IF NOT EXISTS idx_voting_sessions_proposal ON voting_sessions(proposal_id);
+      CREATE INDEX IF NOT EXISTS idx_voting_sessions_status ON voting_sessions(status);
+      CREATE INDEX IF NOT EXISTS idx_voting_sessions_deadline ON voting_sessions(deadline);
 
       -- Full-text search for proposals and discussions
       CREATE VIRTUAL TABLE IF NOT EXISTS proposals_fts USING fts5(id, title, content);
@@ -159,6 +179,56 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
       CREATE TRIGGER IF NOT EXISTS proposals_fts_delete AFTER DELETE ON proposals BEGIN
         DELETE FROM proposals_fts WHERE id = old.id;
       END;
+
+      -- Additional entities to mirror real /gov data
+      -- BIPs
+      CREATE TABLE IF NOT EXISTS bips (
+        id TEXT PRIMARY KEY, -- e.g., 'BIP-06'
+        title TEXT NOT NULL,
+        status TEXT,
+        content TEXT, -- full markdown or extracted content
+        metadata TEXT DEFAULT '{}',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Minutes Sessions (e.g., '0005')
+      CREATE TABLE IF NOT EXISTS minutes_sessions (
+        id TEXT PRIMARY KEY, -- e.g., '0005'
+        title TEXT,
+        date TEXT,
+        summary TEXT,
+        metadata TEXT DEFAULT '{}',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Minutes Session Votes (historical voting/performance data per session)
+      CREATE TABLE IF NOT EXISTS session_votes (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL REFERENCES minutes_sessions(id) ON DELETE CASCADE,
+        agent_id TEXT NOT NULL REFERENCES agents(id),
+        weight REAL,               -- numeric score/weight from historical data
+        decision TEXT,             -- optional mapped decision
+        comment TEXT,              -- optional remark
+        proposal_ref TEXT,         -- optional original proposal reference (e.g., '056')
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS idx_session_votes_session ON session_votes(session_id);
+      CREATE INDEX IF NOT EXISTS idx_session_votes_agent ON session_votes(agent_id);
+
+      -- Teams
+      CREATE TABLE IF NOT EXISTS teams (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        members TEXT DEFAULT '[]',   -- JSON array of agent IDs or names
+        metadata TEXT DEFAULT '{}',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_bips_status ON bips(status);
+      CREATE INDEX IF NOT EXISTS idx_minutes_sessions_date ON minutes_sessions(date);
     `;
 
     this.database.exec(basicSchema);
@@ -222,7 +292,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Public methods to access prepared statements
-  getStatement(name: string): Database.Statement {
+  getStatement(name: string): DatabaseTypes.Statement {
     const statement = this.statements.get(name);
     if (!statement) {
       throw new Error(`Statement '${name}' not found`);
@@ -232,7 +302,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   // Execute raw SQL (use with caution)
   exec(sql: string): void {
-    return this.database.exec(sql);
+    this.database.exec(sql);
   }
 
   // Run a transaction
@@ -241,7 +311,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
   }
 
   // Get database instance (for advanced usage)
-  getDatabase(): Database.Database {
+  getDatabase(): DatabaseTypes.Database {
     return this.database;
   }
 

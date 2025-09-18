@@ -1,0 +1,9 @@
+packages:
+  - .
+
+onlyBuiltDependencies:
+  - '@apollo/protobufjs'
+  - '@nestjs/core'
+  - bcrypt
+  - better-sqlite3
+  - sqlite3

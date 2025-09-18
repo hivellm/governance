@@ -15,6 +15,9 @@ import { AgentsModule } from './modules/agents/agents.module';
 import { VotingModule } from './modules/voting/voting.module';
 import { ExecutionModule } from './modules/execution/execution.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { BipsModule } from './modules/bips/bips.module';
+import { MinutesModule } from './modules/minutes/minutes.module';
+import { TeamsModule } from './modules/teams/teams.module';
 
 @Module({
   imports: [
@@ -24,18 +27,18 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     // Database
     DatabaseModule,
 
-    // GraphQL
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
-      sortSchema: true,
-      playground: true,
-      introspection: true,
-      subscriptions: {
-        'graphql-ws': true,
-        'subscriptions-transport-ws': true,
-      },
-    }),
+    // GraphQL - Temporarily disabled
+    // GraphQLModule.forRoot<ApolloDriverConfig>({
+    //   driver: ApolloDriver,
+    //   autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
+    //   sortSchema: true,
+    //   playground: true,
+    //   introspection: true,
+    //   subscriptions: {
+    //     'graphql-ws': true,
+    //     'subscriptions-transport-ws': true,
+    //   },
+    // }),
 
     // Feature modules
     GovernanceModule,
@@ -45,6 +48,9 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     VotingModule,
     ExecutionModule,
     AnalyticsModule,
+    BipsModule,
+    MinutesModule,
+    TeamsModule,
   ],
 })
 export class AppModule {}

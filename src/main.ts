@@ -1,10 +1,18 @@
+import { config } from 'dotenv';
+config(); // Load .env file
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { json, urlencoded } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Increase body size limits to handle large governance payloads (e.g., BIP content)
+  app.use(json({ limit: '5mb' }));
+  app.use(urlencoded({ extended: true, limit: '5mb' }));
 
   // Global validation pipe
   app.useGlobalPipes(
@@ -37,13 +45,13 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document);
 
-  const port = process.env.PORT || 3000;
+  const port = process.env.PORT || 23080;
   await app.listen(port);
 
   console.log('\n🚀 HiveLLM Governance System started successfully!');
   console.log(`📊 API Server: http://localhost:${port}`);
   console.log(`📋 Swagger Docs: http://localhost:${port}/api`);
-  console.log(`📈 GraphQL Playground: http://localhost:${port}/graphql`);
+  // console.log(`📈 GraphQL Playground: http://localhost:${port}/graphql`);
   console.log(`📁 Database: governance.db (SQLite)`);
   console.log(`🎯 BIP-06 Implementation - Phase 1: Core Infrastructure\n`);
 }

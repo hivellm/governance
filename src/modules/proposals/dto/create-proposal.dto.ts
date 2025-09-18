@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsObject, ValidateNested, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsEnum, IsOptional, IsObject, ValidateNested, MaxLength, MinLength, IsArray, IsUrl } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { ProposalType } from '../interfaces/proposal.interface';
@@ -94,9 +94,111 @@ export class ProposalMetadataDto {
   @IsOptional()
   @IsString({ each: true })
   requires?: string[];
+
+  // Extended fields to preserve rich @metadata from /gov
+  @ApiPropertyOptional({ description: 'Original status from metadata (e.g., active, approved)' })
+  @IsOptional()
+  @IsString()
+  original_status?: string;
+
+  @ApiPropertyOptional({ description: 'Original type (e.g., standards-track, process, informational)' })
+  @IsOptional()
+  @IsString()
+  original_type?: string;
+
+  @ApiPropertyOptional({ description: 'License identifier (e.g., MIT)' })
+  @IsOptional()
+  @IsString()
+  license?: string;
+
+  @ApiPropertyOptional({ description: 'Proposer model name' })
+  @IsOptional()
+  @IsString()
+  proposer_model?: string;
+
+  @ApiPropertyOptional({ description: 'Proposer provider' })
+  @IsOptional()
+  @IsString()
+  proposer_provider?: string;
+
+  @ApiPropertyOptional({ description: 'Proposer role' })
+  @IsOptional()
+  @IsString()
+  proposer_role?: string;
+
+  @ApiPropertyOptional({ description: 'Tags' , type: [String]})
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  tags?: string[];
+
+  @ApiPropertyOptional({ description: 'Estimated effort' })
+  @IsOptional()
+  @IsString()
+  estimatedEffort?: string;
+
+  @ApiPropertyOptional({ description: 'Benefits', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  benefits?: string[];
+
+  @ApiPropertyOptional({ description: 'Challenges', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  challenges?: string[];
+
+  @ApiPropertyOptional({ description: 'Impact details' })
+  @IsOptional()
+  @IsObject()
+  impact?: {
+    scope?: string;
+    complexity?: string;
+    priority?: string;
+  };
+
+  @ApiPropertyOptional({ description: 'References', type: 'array' })
+  @IsOptional()
+  @IsArray()
+  references?: Array<{
+    title?: string;
+    url?: string;
+    type?: string;
+  }>;
+
+  @ApiPropertyOptional({ description: 'Consolidation info' })
+  @IsOptional()
+  @IsObject()
+  consolidation?: {
+    isConsolidated?: boolean;
+    consolidatedInto?: string;
+    consolidatedId?: string;
+    consolidatedFile?: string;
+    implementationStatus?: string;
+    implementedAt?: string;
+    status?: string;
+    bipNumber?: string;
+    note?: string;
+  };
+
+  @ApiPropertyOptional({ description: 'Original createdAt (metadata)' })
+  @IsOptional()
+  @IsString()
+  original_createdAt?: string;
+
+  @ApiPropertyOptional({ description: 'Original updatedAt (metadata)' })
+  @IsOptional()
+  @IsString()
+  original_updatedAt?: string;
 }
 
 export class CreateProposalDto {
+  @ApiPropertyOptional({ description: 'Deterministic proposal ID (e.g., P056). If omitted, server may derive it.' })
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @ApiProperty({ 
     description: 'Title of the proposal', 
     minLength: 10, 

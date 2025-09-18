@@ -27,27 +27,27 @@ This is the implementation of **BIP-06 - Autonomous Governance Framework**, desi
 
 ### Prerequisites
 - Node.js 18+ 
-- npm or yarn
+- pnpm (recommended) or npm/yarn
 
 ### Installation
 
 ```bash
 # Clone and setup
 cd governance/
-npm install
+pnpm install
 
 # Start development server
-npm run start:dev
+pnpm run start:dev
 
-# Or start in production mode
-npm run build
-npm run start:prod
+# Or start in production mode  
+pnpm run build
+pnpm run start:prod
 ```
 
 ### Access Points
-- **REST API**: http://localhost:3000
-- **GraphQL Playground**: http://localhost:3000/graphql
-- **Swagger Documentation**: http://localhost:3000/api
+- **REST API**: http://localhost:23080
+- **GraphQL Playground**: http://localhost:23080/graphql
+- **Swagger Documentation**: http://localhost:23080/api
 - **Database**: `governance.db` (SQLite file)
 
 ## 📋 Project Structure
@@ -164,7 +164,7 @@ GET    /api/votes/:proposalId     # Get voting results
 DATABASE_PATH=./governance.db
 
 # Application  
-PORT=3000
+PORT=23080
 NODE_ENV=development
 CORS_ORIGIN=*
 
@@ -197,40 +197,40 @@ PRAGMA foreign_keys = ON;         -- Enable foreign key constraints
 ### Running Tests
 ```bash
 # Unit tests
-npm run test
+pnpm run test
 
 # Watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Coverage report
-npm run test:cov
+pnpm run test:cov
 
 # E2E tests
-npm run test:e2e
+pnpm run test:e2e
 ```
 
 ### Database Operations
 ```bash
 # Run migrations (when implemented)
-npm run db:migrate
+pnpm run db:migrate
 
 # Seed data (when implemented)
-npm run db:seed
+pnpm run db:seed
 
 # Reset database (manual)
-rm governance.db && npm run start:dev
+rm governance.db && pnpm run start:dev
 ```
 
 ### Code Quality
 ```bash
 # Linting
-npm run lint
+pnpm run lint
 
 # Formatting
-npm run format
+pnpm run format
 
 # Type checking
-npx tsc --noEmit
+pnpx tsc --noEmit
 ```
 
 ## 📊 Governance Workflow
