@@ -31,33 +31,48 @@ export class TeamsService {
   }
 
   async upsert(team: TeamRecord): Promise<TeamRecord> {
-    const db = this.databaseService.getDatabase();
-    db.prepare(`
-      INSERT INTO teams (id, name, members, metadata)
-      VALUES (@id, @name, @members, @metadata)
-      ON CONFLICT(id) DO UPDATE SET
-        name = excluded.name,
-        members = excluded.members,
-        metadata = excluded.metadata,
-        updated_at = CURRENT_TIMESTAMP
-    `).run({
-      id: team.id,
-      name: team.name,
-      members: JSON.stringify(team.members || []),
-      metadata: JSON.stringify(team.metadata || {}),
-    });
-    return (await this.get(team.id))!;
+    try {
+      const db = this.databaseService.getDatabase();
+      db.prepare(`
+        INSERT INTO teams (id, name, members, metadata)
+        VALUES (@id, @name, @members, @metadata)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          members = excluded.members,
+          metadata = excluded.metadata,
+          updated_at = CURRENT_TIMESTAMP
+      `).run({
+        id: team.id,
+        name: team.name,
+        members: JSON.stringify(team.members || []),
+        metadata: JSON.stringify(team.metadata || {}),
+      });
+      return (await this.get(team.id))!;
+    } catch (error) {
+      this.logger.error(`Failed to upsert team ${team.id}: ${error.message}`);
+      throw new BadRequestException('Failed to upsert team');
+    }
   }
 
   async get(id: string): Promise<TeamRecord | null> {
-    const db = this.databaseService.getDatabase();
-    const r = db.prepare('SELECT * FROM teams WHERE id = ?').get(id) as any;
-    return r ? { id: r.id as string, name: r.name as string, members: this.safeParse(r.members) || [], metadata: this.safeParse(r.metadata) || {} } : null;
+    try {
+      const db = this.databaseService.getDatabase();
+      const r = db.prepare('SELECT * FROM teams WHERE id = ?').get(id) as any;
+      return r ? { id: r.id as string, name: r.name as string, members: this.safeParse(r.members) || [], metadata: this.safeParse(r.metadata) || {} } : null;
+    } catch (error) {
+      this.logger.error(`Failed to get team ${id}: ${error.message}`);
+      throw new BadRequestException('Failed to get team');
+    }
   }
 
   private safeParse(value: any) {
     if (typeof value !== 'string') return value;
-    try { return JSON.parse(value); } catch { return value; }
+    try { 
+      return JSON.parse(value); 
+    } catch { 
+      // Return null so the caller can provide a default
+      return null; 
+    }
   }
 }
 

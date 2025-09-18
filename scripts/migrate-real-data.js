@@ -621,13 +621,51 @@ class RealGovernanceDataMigrator {
     }
     const sessions = fs.readdirSync(minutesDir).filter(d => fs.statSync(path.join(minutesDir, d)).isDirectory());
     let sessionsCount = 0; let votesCount = 0;
+    // Cache of ensured agents
+    const ensuredAgents = new Set();
+
+    function normalizeAgentId(raw) {
+      let a = raw.toLowerCase();
+      // drop known vendor prefixes
+      a = a.replace(/^(anthropic|google|openai|xai|groq|manus)-/, '');
+      // normalize variants
+      a = a.replace('grok-3-beta', 'grok-3');
+      a = a.replace('gpt-5-fast', 'gpt-5');
+      // convert 2-5 to 2.5 for gemini
+      a = a.replace(/(gemini-)(\d+)-(\d+)/, (_, p, d1, d2) => `${p}${d1}.${d2}`);
+      return a;
+    }
+
+    const ensureAgentExists = async (agentId) => {
+      if (ensuredAgents.has(agentId)) return;
+      ensuredAgents.add(agentId);
+      try {
+        // try creating; if exists, API may 409 or accept upsert
+        await fetch(`${this.apiUrl}/agents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: agentId, name: agentId, roles: ['voter','discussant'] })
+        });
+      } catch {}
+    };
+
     for (const session of sessions) {
       const sessionPath = path.join(minutesDir, session);
-      const summaryFile = path.join(sessionPath, 'SUMMARY.md');
-      const metaFile = path.join(sessionPath, 'metadata.json');
-      const summary = fs.existsSync(summaryFile) ? fs.readFileSync(summaryFile, 'utf-8') : undefined;
-      const metadata = fs.existsSync(metaFile) ? JSON.parse(fs.readFileSync(metaFile, 'utf-8')) : {};
-      const payload = { id: session, title: metadata.title || `Session ${session}`, date: metadata.date, summary, metadata };
+      // collect summary text from common files
+      const summaryCandidates = ['summary.md','SUMMARY.md','results.md','final_report.md','README.md'];
+      let summary;
+      for (const f of summaryCandidates) {
+        const p = path.join(sessionPath, f);
+        if (fs.existsSync(p)) { summary = fs.readFileSync(p, 'utf-8'); break; }
+      }
+      // collect metadata from json if present
+      const metaCandidates = ['metadata.json','report.json','results.json','final_report.json'];
+      let metadata = {};
+      for (const f of metaCandidates) {
+        const p = path.join(sessionPath, f);
+        if (fs.existsSync(p)) { try { metadata = JSON.parse(fs.readFileSync(p, 'utf-8')); } catch {} break; }
+      }
+      const payload = { id: session, title: metadata.title || `Session ${session}`, date: metadata.date || metadata.timestamp, summary, metadata };
       try {
         const res = await fetch(`${this.apiUrl}/minutes/sessions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         if (res.ok) sessionsCount++;
@@ -635,16 +673,19 @@ class RealGovernanceDataMigrator {
 
       const votesDir = path.join(sessionPath, 'votes');
       if (fs.existsSync(votesDir)) {
-        const voteFiles = fs.readdirSync(votesDir).filter(f => f.endsWith('.json'));
+        const voteFiles = fs.readdirSync(votesDir).filter(f => f.endsWith('.json') && f.toLowerCase() !== 'template.json');
         for (const vf of voteFiles) {
           try {
             const v = JSON.parse(fs.readFileSync(path.join(votesDir, vf), 'utf-8'));
             if (Array.isArray(v.weights)) {
+              const agentRaw = vf.replace('.json','');
+              const agent = normalizeAgentId(agentRaw);
+              await ensureAgentExists(agent);
               for (const w of v.weights) {
-                const id = `${session}-${vf.replace('.json','')}-${w.proposal_id}`;
+                const id = `${session}-${agent}-${w.proposal_id}`;
                 const votePayload = {
                   id,
-                  agentId: vf.replace('.json',''),
+                  agentId: agent,
                   weight: w.weight,
                   decision: w.weight >= 7 ? 'approve' : (w.weight >= 4 ? 'abstain' : 'reject'),
                   comment: w.comment,

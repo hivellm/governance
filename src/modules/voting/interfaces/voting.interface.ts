@@ -40,6 +40,7 @@ export interface VoteCast {
   justification: string;
   weight: number;
   castAt: Date;
+  proposalRef?: string;
   metadata?: any;
 }
 
