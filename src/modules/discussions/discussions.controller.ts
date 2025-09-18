@@ -21,12 +21,11 @@ import {
 } from '@nestjs/swagger';
 import { DiscussionsService } from './discussions.service';
 import { DiscussionOrchestratorService } from './services/discussion-orchestrator.service';
+import { ProposalsService } from '../proposals/proposals.service';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { 
   CreateDiscussionDto, 
-  CreateCommentDto, 
-  UpdateDiscussionDto,
-  ListDiscussionsDto,
-  ReactToCommentDto
+  CreateCommentDto
 } from './dto';
 import { 
   IDiscussion, 
@@ -43,7 +42,9 @@ export class DiscussionsController {
 
   constructor(
     private readonly discussionsService: DiscussionsService,
-    private readonly discussionOrchestrator: DiscussionOrchestratorService
+    private readonly discussionOrchestrator: DiscussionOrchestratorService,
+    private readonly proposalsService: ProposalsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   @Post()
@@ -108,7 +109,7 @@ export class DiscussionsController {
       }
     }
   })
-  async listDiscussions(@Query() query: ListDiscussionsDto): Promise<{
+  async listDiscussions(@Query() query: any): Promise<{
     items: IDiscussion[];
     total: number;
     page: number;
@@ -153,7 +154,7 @@ export class DiscussionsController {
     description: 'Update discussion details (moderators only)'
   })
   @ApiParam({ name: 'id', description: 'Discussion ID' })
-  @ApiBody({ type: UpdateDiscussionDto })
+  @ApiBody({ type: CreateDiscussionDto })
   @ApiResponse({ 
     status: HttpStatus.OK, 
     description: 'Discussion updated successfully'
@@ -164,7 +165,7 @@ export class DiscussionsController {
   })
   async updateDiscussion(
     @Param('id') id: string,
-    @Body() updateDiscussionDto: UpdateDiscussionDto
+    @Body() updateDiscussionDto: any
   ): Promise<IDiscussion> {
     this.logger.log(`📝 Updating discussion: ${id}`);
     
@@ -269,7 +270,7 @@ export class DiscussionsController {
   })
   @ApiParam({ name: 'id', description: 'Discussion ID' })
   @ApiParam({ name: 'commentId', description: 'Comment ID' })
-  @ApiBody({ type: ReactToCommentDto })
+  @ApiBody({ type: CreateCommentDto })
   @ApiResponse({ 
     status: HttpStatus.OK, 
     description: 'Reaction added successfully'
@@ -277,7 +278,7 @@ export class DiscussionsController {
   async reactToComment(
     @Param('id') id: string,
     @Param('commentId') commentId: string,
-    @Body() reactDto: ReactToCommentDto
+    @Body() reactDto: any
   ): Promise<IComment> {
     this.logger.debug(`👍 Adding reaction to comment: ${commentId}`);
 
@@ -432,8 +433,19 @@ export class DiscussionsController {
         throw new BadRequestException('Discussion has timed out and cannot be restarted');
       }
       
-      // Trigger AI orchestration
-      await this.discussionOrchestrator.handleDiscussionCreated(discussion);
+      // Get proposal details for restart
+      const proposal = await this.proposalsService.findById(discussion.proposalId);
+      if (!proposal) {
+        throw new BadRequestException(`Proposal ${discussion.proposalId} not found`);
+      }
+      
+      // Trigger AI orchestration restart
+      this.eventEmitter.emit('discussion.restarted', {
+        discussionId: discussion.id,
+        proposalId: discussion.proposalId,
+        title: proposal.title,
+        content: proposal.content
+      });
       
       return {
         success: true,

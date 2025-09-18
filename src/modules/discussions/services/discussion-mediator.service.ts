@@ -174,17 +174,42 @@ Seja estratégico na escolha para criar uma discussão dinâmica entre os modelo
     }
 
     // Use mediator to decide if discussion should continue
-    const mediatorPrompt = `Analise esta discussão e decida se deve continuar:
+    const mediatorPrompt = `DECISÃO RÁPIDA: Analise esta discussão e decida se deve continuar.
 
-COMENTÁRIOS EXISTENTES:
-${existingComments.map((c, i) => `${i + 1}. ${c.authorId}: ${c.content.substring(0, 100)}...`).join('\n')}
+COMENTÁRIOS EXISTENTES (${existingComments.length}):
+${existingComments.map((c, i) => `${i + 1}. ${c.authorId}: ${c.content.substring(0, 300)}${c.content.length > 300 ? '...' : ''}`).join('\n')}
 
-A discussão deve continuar? Responda apenas: SIM ou NÃO
-Motivo: [breve explicação]`;
+REGRAS:
+- Se há menos de 3 comentários: CONTINUAR
+- Se há diversidade de perspectivas: CONTINUAR  
+- Se discussão está repetitiva: PARAR
+- Se há consenso claro: PARAR
+
+RESPONDA APENAS:
+SIM - se deve continuar
+NÃO - se deve parar
+
+Motivo: [máximo 20 palavras]`;
 
     try {
       const response = await this.modelCallerService.callLLM('auto', mediatorPrompt);
-      const shouldContinue = response.toLowerCase().includes('sim');
+      const lowerResponse = response.toLowerCase();
+      
+      // Look for explicit YES/NO patterns
+      let shouldContinue = false;
+      
+      if (lowerResponse.includes('sim') || lowerResponse.includes('yes') || 
+          lowerResponse.includes('continuar') || lowerResponse.includes('continue')) {
+        shouldContinue = true;
+      } else if (lowerResponse.includes('não') || lowerResponse.includes('nao') || 
+                 lowerResponse.includes('no') || lowerResponse.includes('parar') || 
+                 lowerResponse.includes('stop')) {
+        shouldContinue = false;
+      } else {
+        // If no clear decision, be more permissive - continue if we have few comments
+        shouldContinue = existingComments.length < 4;
+        this.logger.warn(`Mediator gave unclear response: "${response.substring(0, 100)}", defaulting to ${shouldContinue ? 'continue' : 'stop'}`);
+      }
       
       return {
         shouldContinue,

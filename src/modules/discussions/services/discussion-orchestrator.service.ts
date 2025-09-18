@@ -40,10 +40,28 @@ export class DiscussionOrchestratorService {
       this.logger.log(`📝 Proposal content extracted: ${content.substring(0, 100)}...`);
       
       // Start AI orchestration immediately (blocking for testing)
-      await this.orchestrateAIComments(discussion.id, proposal.title, content);
+      await this.orchestrateAIComments(discussion.id, proposal.title, content, discussion.proposalId);
         
     } catch (error) {
       this.logger.error(`Error handling discussion creation for ${discussion.id}: ${error.message}`);
+    }
+  }
+
+  @OnEvent('discussion.restarted')
+  async handleDiscussionRestarted(event: any): Promise<void> {
+    this.logger.log(`🔄 Restarting AI orchestration for discussion: ${event.discussionId}`);
+    
+    try {
+      // Extract content for analysis
+      const content = this.extractProposalContent(event.content);
+      
+      this.logger.log(`📝 Proposal content extracted for restart: ${content.substring(0, 100)}...`);
+      
+      // Start AI orchestration immediately
+      await this.orchestrateAIComments(event.discussionId, event.title, content, event.proposalId);
+        
+    } catch (error) {
+      this.logger.error(`Error handling discussion restart for ${event.discussionId}: ${error.message}`);
     }
   }
 
@@ -53,7 +71,8 @@ export class DiscussionOrchestratorService {
   private async orchestrateAIComments(
     discussionId: string, 
     proposalTitle: string, 
-    proposalContent: string
+    proposalContent: string,
+    proposalId: string
   ): Promise<void> {
     this.logger.log(`🤖 Starting AI orchestration for discussion: ${discussionId}`);
 
@@ -141,7 +160,8 @@ export class DiscussionOrchestratorService {
             chosenModel,
             discussionId,
             mediatorDecision.contextualPrompt,
-            existingComments
+            existingComments,
+            proposalId
           );
           
           if (comment) {
@@ -181,7 +201,8 @@ export class DiscussionOrchestratorService {
     model: any,
     discussionId: string,
     contextualPrompt: string,
-    existingComments: any[]
+    existingComments: any[],
+    proposalId?: string
   ): Promise<any> {
     this.logger.debug(`💭 Generating mediated comment from ${model.id}...`);
 
@@ -189,8 +210,14 @@ export class DiscussionOrchestratorService {
       // Ensure model is registered as agent
       await this.ensureModelAgentExists(model);
 
-      // Use the mediator's contextual prompt directly
-      const response = await this.callModel(model, contextualPrompt);
+      // Enhance the mediator's contextual prompt with proposal ID
+      const enhancedPrompt = `PROPOSTA ESPECÍFICA: ${proposalId || 'UNKNOWN'}
+
+${contextualPrompt}
+
+IMPORTANTE: Analise APENAS a proposta ${proposalId || 'UNKNOWN'}. NÃO mencione BIP-06 ou outras propostas.`;
+      
+      const response = await this.callModel(model, enhancedPrompt);
       
       if (!response || response.trim().length < 20) {
         throw new Error('Response too short or empty');
@@ -199,12 +226,15 @@ export class DiscussionOrchestratorService {
       // Determine comment type
       const commentType = this.determineCommentType(response);
       
+      // Clean response from model commands
+      const cleanedResponse = this.cleanModelResponse(response.trim());
+      
       // Add comment to discussion
       const comment = await this.discussionsService.addComment({
         discussionId,
         authorId: model.id,
         type: commentType,
-        content: response.trim(),
+        content: cleanedResponse,
         metadata: {
           generatedBy: 'mediated-orchestration',
           modelProvider: model.provider,
@@ -233,7 +263,8 @@ export class DiscussionOrchestratorService {
     discussionId: string,
     proposalTitle: string,
     proposalContent: string,
-    existingComments: any[] = []
+    existingComments: any[] = [],
+    proposalId?: string
   ): Promise<any> {
     this.logger.debug(`💭 Generating comment from ${model.id}...`);
 
@@ -242,7 +273,7 @@ export class DiscussionOrchestratorService {
       await this.ensureModelAgentExists(model);
 
       // Create model-specific prompt with existing comments context
-      const prompt = this.createModelPrompt(model, proposalTitle, proposalContent, existingComments);
+      const prompt = this.createModelPrompt(model, proposalTitle, proposalContent, existingComments, proposalId);
       
       // Get response from model
       const response = await this.callModel(model, prompt);
@@ -254,12 +285,15 @@ export class DiscussionOrchestratorService {
       // Determine comment type
       const commentType = this.determineCommentType(response);
       
+      // Clean response from model commands
+      const cleanedResponse = this.cleanModelResponse(response.trim());
+      
       // Add comment to discussion
       const comment = await this.discussionsService.addComment({
         discussionId,
         authorId: model.id,
         type: commentType,
-        content: response.trim(),
+        content: cleanedResponse,
         metadata: {
           generatedBy: 'ai-orchestration',
           modelProvider: model.provider,
@@ -498,7 +532,68 @@ export class DiscussionOrchestratorService {
     return JSON.stringify(content);
   }
 
-  private createModelPrompt(model: any, title: string, content: string, existingComments: any[] = []): string {
+  /**
+   * Clean model response from search commands and artifacts
+   */
+  private cleanModelResponse(response: string): string {
+    if (!response) return '';
+    
+    const lines = response.split('\n');
+    const cleanedLines = [];
+    
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+      
+      // Skip lines that are model commands or artifacts
+      if (trimmedLine.startsWith('Read ') ||
+          trimmedLine.startsWith('Grepped ') ||
+          trimmedLine.startsWith('Searched ') ||
+          trimmedLine.startsWith('Search ') ||
+          trimmedLine.includes('Searched files') ||
+          trimmedLine.includes('I\'ll search') ||
+          trimmedLine.includes('I\'ll open') ||
+          trimmedLine.includes('I\'ll locate') ||
+          trimmedLine.includes('Vou procurar') ||
+          trimmedLine.includes('Vou localizar') ||
+          trimmedLine.includes('Vou buscar') ||
+          trimmedLine.match(/^[A-Z][a-z]+ \([^)]+\)$/) || // Skip pattern like "Read (filename)"
+          trimmedLine === '' && cleanedLines.length === 0) { // Skip empty lines at start
+        continue;
+      }
+      
+      cleanedLines.push(line);
+    }
+    
+    // Join and clean up extra whitespace
+    let cleaned = cleanedLines.join('\n').trim();
+    
+    // Remove multiple consecutive newlines
+    cleaned = cleaned.replace(/\n\s*\n\s*\n/g, '\n\n');
+    
+    return cleaned;
+  }
+
+  /**
+   * Extract proposal ID from title or return a default
+   */
+  private extractProposalId(title: string): string {
+    // Try to extract P### pattern from title
+    const match = title.match(/P(\d+)/i);
+    if (match) {
+      return `P${match[1].padStart(3, '0')}`;
+    }
+    
+    // Fallback: try to extract from any number in title
+    const numberMatch = title.match(/(\d+)/);
+    if (numberMatch) {
+      return `P${numberMatch[1].padStart(3, '0')}`;
+    }
+    
+    // Last resort: return UNKNOWN
+    return 'UNKNOWN';
+  }
+
+  private createModelPrompt(model: any, title: string, content: string, existingComments: any[] = [], proposalId?: string): string {
     let commentContext = '';
     
     if (existingComments.length > 0) {
@@ -509,39 +604,44 @@ export class DiscussionOrchestratorService {
       commentContext += 'IMPORTANTE: Considere os comentários acima em sua análise. Você pode concordar, discordar, ou adicionar perspectivas complementares.\n';
     }
 
-    return `ANÁLISE DE GOVERNANÇA - NÃO É SESSÃO DE CÓDIGO
+    return `ANÁLISE DE GOVERNANÇA - PROPOSTA ESPECÍFICA
 
 Você é ${model.name} (${model.id}) participando de uma discussão de governança do projeto HiveLLM.
 
-IMPORTANTE: Esta é uma análise de proposta de governança, não uma sessão de edição de código. Não peça para adicionar arquivos ao chat. Analise diretamente o conteúdo fornecido abaixo.
+PROPOSTA ESPECÍFICA EM ANÁLISE:
+- ID: ${proposalId || this.extractProposalId(title)}
+- TÍTULO: ${title}
+- CONTEÚDO: Fornecido abaixo (NÃO busque arquivos externos)
 
-CONTEXTO DO PROJETO:
-O HiveLLM é um sistema de governança distribuída que utiliza múltiplos modelos de IA para análise e tomada de decisões. O projeto inclui:
-- Sistema de propostas (BIPs) com fases de discussão, votação e implementação
-- Orquestração de modelos AI via cursor-agent e aider
-- Interface web com Handlebars e NestJS backend
-- Banco SQLite para persistência
-- Integração com múltiplos provedores de LLM (OpenAI, Anthropic, Gemini, xAI, DeepSeek, Groq)
+IMPORTANTE: Analise APENAS esta proposta específica. NÃO analise BIP-06 ou outras propostas genéricas.
 
-PROPOSTA EM ANÁLISE: ${title}
+CONTEXTO DO PROJETO HiveLLM:
+- Sistema de governança distribuída com múltiplos modelos de IA
+- Propostas passam por fases: Discussion → Voting → Implementation
+- Backend NestJS + Frontend Handlebars + SQLite
+- Integração com múltiplos provedores LLM
 
-CONTEÚDO COMPLETO DA PROPOSTA:
+CONTEÚDO COMPLETO DA PROPOSTA ${proposalId || this.extractProposalId(title)}:
 ${content}
 ${commentContext}
 
-TAREFA ESPECÍFICA:
-Forneça APENAS sua análise técnica desta proposta em até 150 palavras. ${existingComments.length > 0 ? 'Considere os comentários anteriores e adicione sua perspectiva única.' : 'Seja o primeiro a comentar com foco em viabilidade técnica.'} 
+INSTRUÇÕES ESPECÍFICAS:
+1. Analise SOMENTE a proposta ${proposalId || this.extractProposalId(title)} - "${title}"
+2. Forneça análise técnica em 100-150 palavras
+3. ${existingComments.length > 0 ? 'Considere os comentários anteriores e adicione sua perspectiva única' : 'Seja o primeiro a comentar com foco técnico'}
+4. NÃO mencione BIP-06, BIP-05 ou outras propostas
+5. NÃO busque arquivos externos (Read, Grepped, Searched files)
+6. NÃO use comandos de busca - todo conteúdo necessário está fornecido
+7. Responda DIRETAMENTE com sua análise técnica
 
-NÃO peça arquivos adicionais. NÃO mencione que precisa de mais informações. Analise com base no conteúdo fornecido.
-
-Foque especificamente em:
+FOQUE EM:
 - Viabilidade técnica da implementação
-- Impacto na arquitetura atual do sistema
-- Considerações de segurança e performance
-- Compatibilidade com o ecossistema existente
-- Riscos e benefícios da implementação
+- Arquitetura e integração com sistema atual
+- Performance e escalabilidade
+- Segurança e compatibilidade
+- Riscos e benefícios específicos
 
-Responda DIRETAMENTE em português brasileiro de forma concisa e técnica.`;
+Responda em português brasileiro de forma direta e técnica sobre a proposta ${proposalId || this.extractProposalId(title)}.`;
   }
 
   private determineCommentType(response: string): any {
