@@ -25,13 +25,13 @@ export class WebController {
   async home(@Res() res: any) {
     try {
       return res.render('index', {
-        title: 'BIP-06 Governance System',
+        title: 'System',
         subtitle: 'Autonomous Governance Framework'
       });
     } catch (error) {
       this.logger.error(`Error rendering home page: ${error.message}`);
       return res.json({ 
-        message: 'BIP-06 Governance System',
+        message: 'System',
         status: 'Web interface loading...',
         error: error.message 
       });
@@ -48,7 +48,7 @@ export class WebController {
       const discussions = await this.discussionsService.listDiscussions({}, 1, 5);
       
       return {
-        title: 'Dashboard - BIP-06 Governance',
+        title: 'Dashboard',
         proposals: proposals.items,
         proposalCount: proposals.total,
         agentStats,
@@ -127,7 +127,7 @@ export class WebController {
       });
       
       return {
-        title: 'Proposals - BIP-06 Governance',
+        title: 'Proposals',
         proposals: proposalsWithActualStatus,
         pagination: {
           current: page,
@@ -254,7 +254,7 @@ export class WebController {
       }
 
       return {
-        title: `${proposal.title} - BIP-06 Governance`,
+        title: `${proposal.title}`,
         proposal: {
           ...proposal,
           actualStatus,
@@ -285,7 +285,7 @@ export class WebController {
     try {
       const agents = await this.agentsService.findAll({}, 1, 100);
       return {
-        title: 'New Proposal - BIP-06 Governance',
+        title: 'New Proposal',
         agents: agents.items
       };
     } catch (error) {
@@ -314,7 +314,7 @@ export class WebController {
       const availableRoles = await this.agentsService.getAvailableRoles();
       
       return {
-        title: 'Agents - BIP-06 Governance',
+        title: 'Agents',
         agents: result.items,
         availableRoles,
         pagination: {
@@ -343,7 +343,7 @@ export class WebController {
       const permissions = await this.agentsService.getAgentPermissions(id);
       
       return {
-        title: `${agent.name} - BIP-06 Governance`,
+        title: `${agent.name}`,
         agent,
         permissions: permissions.permissions,
         roleMatrix: permissions.roleMatrix
@@ -372,7 +372,7 @@ export class WebController {
       const result = await this.discussionsService.listDiscussions(filters, page, limit);
       
       return {
-        title: 'Discussions - BIP-06 Governance',
+        title: 'Discussions',
         discussions: result.items,
         pagination: {
           current: page,
@@ -399,7 +399,7 @@ export class WebController {
       const proposals = await this.proposalsService.findAll({ page: 1, limit: 100 });
       
       return {
-        title: 'New Discussion - BIP-06 Governance',
+        title: 'New Discussion',
         proposals: proposals.items,
         selectedProposalId: query.proposalId
       };
@@ -451,7 +451,7 @@ export class WebController {
       });
       
       return {
-        title: 'Voting - BIP-06 Governance',
+        title: 'Voting',
         proposals: votingProposals.items,
         totalCount: votingProposals.total,
         pagination: {
@@ -477,7 +477,7 @@ export class WebController {
       const results = await this.votingService.getVotingResults(sessionId);
       
       return {
-        title: 'Voting Session - BIP-06 Governance',
+        title: 'Voting Session',
         session: { id: sessionId },
         results
       };
@@ -504,7 +504,7 @@ export class WebController {
       );
       
       return {
-        title: 'Minutes - BIP-06 Governance',
+        title: 'Minutes',
         sessions,
         totalCount: sessions.length
       };
@@ -525,7 +525,7 @@ export class WebController {
       const results = await this.minutesService.getSessionResults(id);
       
       return {
-        title: `Minutes ${id} - BIP-06 Governance`,
+        title: `Minutes ${id}`,
         session,
         results
       };
@@ -545,7 +545,7 @@ export class WebController {
       const bips = await this.bipsService.list();
       
       return {
-        title: 'BIPs - BIP-06 Governance',
+        title: 'BIPs',
         bips,
         totalCount: bips.length
       };
@@ -572,7 +572,7 @@ export class WebController {
       }
       
       return {
-        title: `${bip.title} - BIP-06 Governance`,
+        title: `${bip.title}`,
         bip
       };
     } catch (error) {

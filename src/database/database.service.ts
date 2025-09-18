@@ -58,7 +58,7 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
 
   private createBasicTables() {
     const basicSchema = `
-      -- Basic tables for BIP-06 governance system
+      -- Basic tables for system
       CREATE TABLE IF NOT EXISTS proposals (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,

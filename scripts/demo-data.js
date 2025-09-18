@@ -1,5 +1,5 @@
 /**
- * Demo Data Script for BIP-06 Governance System
+ * Demo Data Script for System
  * Creates sample data to demonstrate the implemented features
  */
 
@@ -27,7 +27,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
 }
 
 async function createDemoData() {
-  console.log('🚀 Creating demo data for BIP-06 Governance System...\n');
+  console.log('🚀 Creating demo data for System...\n');
 
   try {
     // 1. Create demo agents with different roles

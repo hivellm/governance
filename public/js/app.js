@@ -1,4 +1,4 @@
-// BIP-06 Governance System - Frontend Utilities
+// System - Frontend Utilities
 
 class GovernanceUI {
     constructor() {
