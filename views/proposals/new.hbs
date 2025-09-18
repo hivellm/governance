@@ -6,7 +6,7 @@
 
 <!-- Form -->
 <div class="max-w-4xl">
-    <form method="POST" action="/proposals" class="space-y-6">
+    <form id="proposalForm" class="space-y-6">
         <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
             <h2 class="text-lg font-semibold text-gray-100 mb-6">Basic Information</h2>
             
@@ -134,7 +134,7 @@ Expected completion timeline..."
                 <span>Cancel</span>
             </a>
             
-            <button type="submit" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <button type="submit" class="inline-flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 text-white px-6 py-3 rounded-lg font-medium transition-colors">
                 <i data-feather="save" class="w-4 h-4"></i>
                 <span>Create Proposal</span>
             </button>
@@ -178,8 +178,49 @@ Expected completion timeline..."
         });
     });
     
-    // Clear draft on successful submit
-    form.addEventListener('submit', () => {
-        localStorage.removeItem('proposalDraft');
+    // Handle form submission via API
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const data = {
+            title: formData.get('title'),
+            content: formData.get('content'),
+            type: formData.get('type'),
+            authorId: formData.get('authorId'),
+            metadata: {
+                priority: formData.get('priority'),
+                estimatedEffort: formData.get('estimatedEffort')
+            }
+        };
+        
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-feather="loader" class="w-4 h-4 animate-spin mr-2"></i>Creating...';
+        
+        try {
+            const response = await fetch('/api/proposals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                localStorage.removeItem('proposalDraft');
+                window.location.href = `/proposals/${result.id}`;
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.message || 'Failed to create proposal'));
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-feather="save" class="w-4 h-4 mr-2"></i>Create Proposal';
+                feather.replace();
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i data-feather="save" class="w-4 h-4 mr-2"></i>Create Proposal';
+            feather.replace();
+        }
     });
 </script>

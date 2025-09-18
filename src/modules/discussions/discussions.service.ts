@@ -245,10 +245,144 @@ export class DiscussionsService {
       })
     );
 
+    // Update discussion participants - always recalculate from all comments
+    const existingAuthors = db.prepare(`
+      SELECT DISTINCT author_id FROM comments 
+      WHERE discussion_id = ?
+    `).all(createRequest.discussionId).map((row: any) => row.author_id);
+    
+    // Add current author if not already included
+    if (!existingAuthors.includes(createRequest.authorId)) {
+      existingAuthors.push(createRequest.authorId);
+    }
+    
+    // Update participants in database
+    await this.updateDiscussionParticipants(createRequest.discussionId, existingAuthors);
+    this.logger.debug(`Updated participants for discussion ${createRequest.discussionId}: ${existingAuthors.join(', ')}`);
+
     this.eventEmitter.emit('comment.created', comment);
     this.logger.log(`✅ Comment added: ${commentId} by ${createRequest.authorId}`);
 
     return comment;
+  }
+
+  /**
+   * Update discussion participants list
+   */
+  private async updateDiscussionParticipants(discussionId: string, participants: string[]): Promise<void> {
+    const db = this.databaseService.getDatabase();
+    db.prepare('UPDATE discussions SET participants = ? WHERE id = ?').run(
+      JSON.stringify(participants),
+      discussionId
+    );
+    this.logger.debug(`Updated participants for discussion ${discussionId}: ${participants.join(', ')}`);
+  }
+
+  /**
+   * Recalculate participants for all discussions
+   */
+  async recalculateAllParticipants(): Promise<void> {
+    const db = this.databaseService.getDatabase();
+    const discussions = db.prepare('SELECT id FROM discussions').all() as Array<{ id: string }>;
+    
+    for (const discussion of discussions) {
+      const authors = db.prepare(`
+        SELECT DISTINCT author_id FROM comments 
+        WHERE discussion_id = ?
+      `).all(discussion.id).map((row: any) => row.author_id);
+      
+      await this.updateDiscussionParticipants(discussion.id, authors);
+      this.logger.log(`Recalculated participants for discussion ${discussion.id}: ${authors.length} participants`);
+    }
+    
+    this.logger.log(`✅ Recalculated participants for ${discussions.length} discussions`);
+  }
+
+  /**
+   * Check and finalize discussions that have exceeded their timeout
+   */
+  async checkAndFinalizeTimeoutDiscussions(): Promise<{ finalized: string[], checked: number }> {
+    const db = this.databaseService.getDatabase();
+    const now = new Date();
+    
+    // Get all active discussions with timeout
+    const activeDiscussions = db.prepare(`
+      SELECT id, timeout_at FROM discussions 
+      WHERE status = 'active' AND timeout_at IS NOT NULL
+    `).all() as Array<{ id: string, timeout_at: string }>;
+    
+    const finalized: string[] = [];
+    
+    for (const discussion of activeDiscussions) {
+      const timeoutAt = new Date(discussion.timeout_at);
+      
+      if (now > timeoutAt) {
+        // Finalize the discussion
+        await this.finalizeDiscussion(discussion.id, 'timeout');
+        finalized.push(discussion.id);
+        this.logger.log(`⏰ Finalized discussion ${discussion.id} due to timeout`);
+      }
+    }
+    
+    this.logger.log(`✅ Checked ${activeDiscussions.length} discussions, finalized ${finalized.length} due to timeout`);
+    return { finalized, checked: activeDiscussions.length };
+  }
+
+  async deleteDiscussion(discussionId: string): Promise<void> {
+    const db = this.databaseService.getDatabase();
+    
+    try {
+      // Start transaction
+      db.transaction(() => {
+        // Delete all comments first (due to foreign key constraints)
+        const deleteComments = db.prepare('DELETE FROM comments WHERE discussion_id = ?');
+        const commentsResult = deleteComments.run(discussionId);
+        
+        // Delete the discussion
+        const deleteDiscussion = db.prepare('DELETE FROM discussions WHERE id = ?');
+        const discussionResult = deleteDiscussion.run(discussionId);
+        
+        if (discussionResult.changes === 0) {
+          throw new Error(`Discussion ${discussionId} not found`);
+        }
+        
+        this.logger.log(`🗑️ Deleted discussion ${discussionId} and ${commentsResult.changes} comments`);
+      })();
+      
+      // Emit event for deletion
+      this.eventEmitter.emit('discussion.deleted', {
+        discussionId,
+        deletedAt: new Date()
+      });
+      
+    } catch (error) {
+      this.logger.error(`Failed to delete discussion ${discussionId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Finalize a discussion
+   */
+  async finalizeDiscussion(discussionId: string, reason: 'timeout' | 'manual' | 'completed'): Promise<void> {
+    const db = this.databaseService.getDatabase();
+    const now = new Date();
+    
+    // Update discussion status to closed (valid status)
+    db.prepare(`
+      UPDATE discussions 
+      SET status = 'closed', closed_at = ?
+      WHERE id = ?
+    `).run(now.toISOString(), discussionId);
+    
+    // Emit event for finalization
+    this.eventEmitter.emit('discussion.finalized', {
+      discussionId,
+      reason,
+      finalizedAt: now
+    });
+    
+    this.logger.log(`📋 Discussion ${discussionId} finalized (reason: ${reason})`);
   }
 
   /**

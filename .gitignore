@@ -55,3 +55,4 @@ schema.gql
 # Cache
 .cache/
 .parcel-cache/
+.aider*

@@ -1,0 +1,174 @@
+<!-- Header -->
+<div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-100 mb-2">Start New Discussion</h1>
+    <p class="text-gray-400">Create a structured discussion for a proposal</p>
+</div>
+
+<!-- Form -->
+<div class="max-w-2xl">
+            <form id="discussionForm" class="space-y-6">
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-100 mb-6">Discussion Details</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="proposalId" class="block text-sm font-medium text-gray-300 mb-2">
+                        Proposal <span class="text-red-400">*</span>
+                    </label>
+                    <select 
+                        id="proposalId" 
+                        name="proposalId" 
+                        required
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    >
+                        <option value="">Select a proposal</option>
+                        {{#each proposals}}
+                        <option value="{{id}}" {{#if (eq id ../selectedProposalId)}}selected{{/if}}>
+                            {{id}} - {{title}}
+                        </option>
+                        {{/each}}
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="title" class="block text-sm font-medium text-gray-300 mb-2">
+                        Discussion Title
+                    </label>
+                    <input 
+                        type="text" 
+                        id="title" 
+                        name="title"
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                        placeholder="Enter discussion title (optional)"
+                    >
+                </div>
+                
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-300 mb-2">
+                        Description
+                    </label>
+                    <textarea 
+                        id="description" 
+                        name="description"
+                        rows="3"
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                        placeholder="Describe the focus of this discussion (optional)"
+                    ></textarea>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+            <h2 class="text-lg font-semibold text-gray-100 mb-6">Settings</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="maxDurationMinutes" class="block text-sm font-medium text-gray-300 mb-2">
+                        Max Duration (minutes)
+                    </label>
+                    <input 
+                        type="number" 
+                        id="maxDurationMinutes" 
+                        name="maxDurationMinutes"
+                        value="60"
+                        min="5"
+                        max="480"
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    >
+                </div>
+                
+                <div>
+                    <label for="maxCommentsPerAgent" class="block text-sm font-medium text-gray-300 mb-2">
+                        Max Comments per Agent
+                    </label>
+                    <input 
+                        type="number" 
+                        id="maxCommentsPerAgent" 
+                        name="maxCommentsPerAgent"
+                        value="10"
+                        min="1"
+                        max="50"
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                    >
+                </div>
+                
+                <div class="md:col-span-2">
+                    <div class="flex items-center space-x-6">
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="allowThreading" checked class="bg-gray-800 border-gray-700 text-gray-600 focus:ring-gray-500">
+                            <span class="text-sm text-gray-300">Allow comment threading</span>
+                        </label>
+                        
+                        <label class="flex items-center space-x-2">
+                            <input type="checkbox" name="autoClose" checked class="bg-gray-800 border-gray-700 text-gray-600 focus:ring-gray-500">
+                            <span class="text-sm text-gray-300">Auto-close when timeout</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex items-center justify-between">
+            <a href="/discussions" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-300 px-6 py-3 rounded-lg transition-colors">
+                <i data-feather="arrow-left" class="w-4 h-4"></i>
+                <span>Cancel</span>
+            </a>
+            
+            <button type="submit" class="inline-flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                <i data-feather="message-square" class="w-4 h-4"></i>
+                <span>Start Discussion</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    feather.replace();
+    
+    // Handle form submission via API
+    document.getElementById('discussionForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = {
+            proposalId: formData.get('proposalId'),
+            title: formData.get('title'),
+            description: formData.get('description'),
+            settings: {
+                maxDurationMinutes: parseInt(formData.get('maxDurationMinutes')) || 60,
+                allowThreading: formData.get('allowThreading') === 'on',
+                autoClose: formData.get('autoClose') === 'on',
+                maxCommentsPerAgent: parseInt(formData.get('maxCommentsPerAgent')) || 10
+            }
+        };
+        
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-feather="loader" class="w-4 h-4 animate-spin mr-2"></i>Creating...';
+        
+        try {
+            const response = await fetch('/api/discussions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                window.location.href = `/discussions/${result.id}`;
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.message || 'Failed to create discussion'));
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i data-feather="message-square" class="w-4 h-4 mr-2"></i>Start Discussion';
+                feather.replace();
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i data-feather="message-square" class="w-4 h-4 mr-2"></i>Start Discussion';
+            feather.replace();
+        }
+    });
+</script>

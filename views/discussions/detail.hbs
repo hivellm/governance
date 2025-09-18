@@ -1,0 +1,425 @@
+<!-- Header -->
+<div class="flex justify-between items-start mb-6">
+    <div class="flex-1">
+        <h1 class="text-2xl font-bold text-gray-100 mb-2">
+            {{#if discussion.title}}{{discussion.title}}{{else}}Discussion for {{proposal.title}}{{/if}}
+        </h1>
+        
+        <div class="flex items-center space-x-6 text-sm text-gray-400">
+            <span class="flex items-center space-x-1">
+                <i data-feather="file-text" class="w-4 h-4"></i>
+                <a href="/proposals/{{discussion.proposalId}}" class="text-gray-300 hover:text-gray-200">{{discussion.proposalId}}</a>
+            </span>
+            <span class="flex items-center space-x-1">
+                <i data-feather="users" class="w-4 h-4"></i>
+                <span><span data-participants-count>{{discussion.participants.length}}</span> participants</span>
+            </span>
+            <span class="flex items-center space-x-1">
+                <i data-feather="calendar" class="w-4 h-4"></i>
+                <span>{{formatDate discussion.createdAt}}</span>
+            </span>
+            <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq discussion.status 'active')}}bg-green-900 text-green-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                {{capitalize discussion.status}}
+            </span>
+        </div>
+    </div>
+    
+        <div class="flex items-center space-x-3">
+            {{#if (eq discussion.status 'active')}}
+            <button id="restart-discussion-btn" onclick="restartDiscussion('{{discussion.id}}')" class="inline-flex items-center space-x-2 bg-blue-700 hover:bg-blue-600 text-blue-100 px-4 py-2 rounded-lg transition-colors">
+                <i data-feather="refresh-cw" class="w-4 h-4"></i>
+                <span>Restart AI</span>
+            </button>
+            
+            <button id="finalize-discussion-btn" onclick="finalizeDiscussion('{{discussion.id}}')" class="inline-flex items-center space-x-2 bg-yellow-700 hover:bg-yellow-600 text-yellow-100 px-4 py-2 rounded-lg transition-colors">
+                <i data-feather="check-circle" class="w-4 h-4"></i>
+                <span>Finalize</span>
+            </button>
+            {{/if}}
+            
+            <button id="delete-discussion-btn" onclick="deleteDiscussion('{{discussion.id}}')" class="inline-flex items-center space-x-2 bg-red-700 hover:bg-red-600 text-red-100 px-4 py-2 rounded-lg transition-colors">
+                <i data-feather="trash-2" class="w-4 h-4"></i>
+                <span>Delete</span>
+            </button>
+            
+            <a href="/discussions" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-300 px-4 py-2 rounded-lg transition-colors">
+                <i data-feather="arrow-left" class="w-4 h-4"></i>
+                <span>Back to Discussions</span>
+            </a>
+        </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+    <!-- Comments Thread -->
+    <div class="lg:col-span-3">
+        <!-- Proposal Context -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
+            <h3 class="font-medium text-gray-200 mb-2">
+                <i data-feather="file-text" class="w-4 h-4 inline mr-1"></i>
+                Proposal: {{proposal.title}}
+            </h3>
+            <p class="text-sm text-gray-400">{{truncate (safeContent proposal.content) 200}}</p>
+            <a href="/proposals/{{proposal.id}}" class="text-gray-300 hover:text-gray-200 text-sm mt-2 inline-block">View full proposal →</a>
+        </div>
+        
+        <!-- Comments -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-4 border-b border-gray-800">
+                <h2 class="text-lg font-semibold text-gray-100 flex items-center justify-between">
+                    <span class="flex items-center">
+                        <i data-feather="message-circle" class="w-5 h-5 mr-2 text-gray-400"></i>
+                        Comments ({{comments.length}})
+                    </span>
+                    {{#if canComment}}
+                    <a href="#add-comment" class="text-sm text-gray-300 hover:text-gray-200">Add Comment</a>
+                    {{/if}}
+                </h2>
+            </div>
+            
+            <div class="max-h-96 overflow-y-auto">
+                {{#if comments}}
+                <div class="p-4 space-y-4">
+                    {{#each comments}}
+                    <div class="{{#if parentId}}ml-8 border-l-2 border-gray-700 pl-4{{/if}} bg-gray-800 rounded-lg p-4">
+                        <div class="flex items-start justify-between mb-2">
+                            <div class="flex items-center space-x-2">
+                                <div class="relative w-6 h-6">
+                                    <img src="/images/{{getModelIcon authorId}}" alt="{{authorId}}" class="w-6 h-6 rounded-full object-cover" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="w-6 h-6 bg-gray-600 rounded-full flex items-center justify-center" style="display:none;">
+                                        <span class="text-white text-xs">{{substring authorId 0 1}}</span>
+                                    </div>
+                                </div>
+                                <span class="font-medium text-gray-200">{{authorId}}</span>
+                                <span class="px-2 py-1 text-xs rounded bg-gray-700 text-gray-300">{{type}}</span>
+                            </div>
+                            <span class="text-xs text-gray-500">{{formatDate createdAt}}</span>
+                        </div>
+                        
+                        <div class="text-gray-300 text-sm mb-3 whitespace-pre-wrap">{{content}}</div>
+                        
+                        {{#if reactions}}
+                        <div class="flex items-center space-x-4 text-xs">
+                            {{#each reactions}}
+                            <span class="flex items-center space-x-1 text-gray-400">
+                                <span>{{@key}}: {{this.length}}</span>
+                            </span>
+                            {{/each}}
+                        </div>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+                {{else}}
+                <div class="p-8 text-center text-gray-500">
+                    <i data-feather="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-600"></i>
+                    <p>No comments yet. Be the first to comment!</p>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+        
+        <!-- Add Comment Form -->
+        {{#if canComment}}
+        <div id="add-comment" class="mt-6 bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-4 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Add Comment</h3>
+            </div>
+            
+            <div class="p-4">
+                <form method="POST" action="/discussions/{{discussion.id}}/comments" class="space-y-4">
+                    <div>
+                        <label for="authorId" class="block text-sm font-medium text-gray-300 mb-2">
+                            Agent ID <span class="text-red-400">*</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            id="authorId" 
+                            name="authorId" 
+                            required
+                            value="web-user"
+                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                        >
+                    </div>
+                    
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-300 mb-2">
+                            Comment Type
+                        </label>
+                        <select 
+                            id="type" 
+                            name="type"
+                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                        >
+                            <option value="comment">General Comment</option>
+                            <option value="suggestion">Suggestion</option>
+                            <option value="objection">Objection</option>
+                            <option value="support">Support</option>
+                            <option value="question">Question</option>
+                            <option value="clarification">Clarification</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="content" class="block text-sm font-medium text-gray-300 mb-2">
+                            Comment <span class="text-red-400">*</span>
+                        </label>
+                        <textarea 
+                            id="content" 
+                            name="content" 
+                            required
+                            rows="4"
+                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
+                            placeholder="Enter your comment..."
+                        ></textarea>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-3">
+                        <button type="button" onclick="document.getElementById('add-comment').style.display='none'" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors">
+                            Add Comment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {{/if}}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Discussion Info -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-4 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Discussion Info</h3>
+            </div>
+            
+            <div class="p-4 space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Status</label>
+                    <p class="text-gray-200 capitalize">{{discussion.status}}</p>
+                </div>
+                
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Participants</label>
+                    <p class="text-gray-200">{{discussion.participants.length}}</p>
+                </div>
+                
+                {{#if discussion.timeoutAt}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Timeout</label>
+                    <p class="text-gray-200">{{formatDate discussion.timeoutAt}}</p>
+                </div>
+                {{/if}}
+                
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Created</label>
+                    <p class="text-gray-200">{{formatDate discussion.createdAt}}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Settings -->
+        {{#if discussion.settings}}
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-4 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Settings</h3>
+            </div>
+            
+            <div class="p-4 space-y-2 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Max Duration</span>
+                    <span class="text-gray-200">{{discussion.settings.maxDurationMinutes}}min</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Threading</span>
+                    <span class="text-gray-200">{{#if discussion.settings.allowThreading}}✓{{else}}✗{{/if}}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-400">Auto-close</span>
+                    <span class="text-gray-200">{{#if discussion.settings.autoClose}}✓{{else}}✗{{/if}}</span>
+                </div>
+            </div>
+        </div>
+        {{/if}}
+    </div>
+</div>
+
+<script>
+    feather.replace();
+    
+    // Auto-refresh for active discussions to show new comments
+    {{#if (eq discussion.status 'active')}}
+    let lastCommentCount = {{comments.length}};
+    
+    setInterval(async () => {
+        if (!document.hidden) {
+            try {
+                // Check for new comments
+                const response = await fetch('/api/discussions/{{discussion.id}}/comments');
+                const comments = await response.json();
+                
+                if (comments.length > lastCommentCount) {
+                    // New comments detected, reload page
+                    console.log(`New comments detected: ${comments.length} vs ${lastCommentCount}`);
+                    window.location.reload();
+                }
+                
+                lastCommentCount = comments.length;
+            } catch (error) {
+                console.warn('Auto-refresh failed:', error);
+            }
+        }
+    }, 5000); // Check every 5 seconds for new comments
+    {{/if}}
+    
+    // Also refresh participants count
+    setInterval(async () => {
+        if (!document.hidden) {
+            try {
+                const response = await fetch('/api/discussions/{{discussion.id}}');
+                const discussionData = await response.json();
+                
+                // Update participant count if it changed
+                const currentParticipants = document.querySelector('[data-participants-count]');
+                if (currentParticipants && discussionData.participants) {
+                    const newCount = discussionData.participants.length;
+                    if (currentParticipants.textContent !== newCount.toString()) {
+                        currentParticipants.textContent = newCount;
+                    }
+                }
+            } catch (error) {
+                console.warn('Participant refresh failed:', error);
+            }
+        }
+    }, 10000); // Check every 10 seconds for participant updates
+    
+    // Function to restart discussion AI orchestration
+        window.restartDiscussion = async function(discussionId) {
+            const button = document.getElementById('restart-discussion-btn');
+            const originalText = button.innerHTML;
+            
+            try {
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<i data-feather="loader" class="w-4 h-4 animate-spin"></i><span>Restarting...</span>';
+                feather.replace(); // Re-render feather icons
+                
+                const response = await fetch(`/api/discussions/${discussionId}/restart`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    // Show success state temporarily
+                    button.innerHTML = '<i data-feather="check" class="w-4 h-4"></i><span>Restarted!</span>';
+                    feather.replace();
+                    
+                    // Show success message
+                    alert('Discussion AI orchestration restarted successfully! New comments should start appearing soon.');
+                    
+                    // Reset button after 2 seconds
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.innerHTML = originalText;
+                        feather.replace();
+                    }, 2000);
+                } else {
+                    throw new Error(result.message || 'Failed to restart discussion');
+                }
+            } catch (error) {
+                console.error('Error restarting discussion:', error);
+                alert('Failed to restart discussion: ' + error.message);
+                
+                // Reset button
+                button.disabled = false;
+                button.innerHTML = originalText;
+                feather.replace();
+            }
+        };
+
+        window.finalizeDiscussion = async function(discussionId) {
+            if (!confirm('Are you sure you want to finalize this discussion? This action cannot be undone.')) {
+                return;
+            }
+            
+            const button = document.getElementById('finalize-discussion-btn');
+            const originalText = button.innerHTML;
+            
+            try {
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<i data-feather="loader" class="w-4 h-4 animate-spin"></i><span>Finalizing...</span>';
+                feather.replace();
+                
+                const response = await fetch(`/api/discussions/${discussionId}/finalize`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('Discussion finalized successfully!');
+                    window.location.reload(); // Reload to update status
+                } else {
+                    throw new Error(result.message || 'Failed to finalize discussion');
+                }
+            } catch (error) {
+                console.error('Error finalizing discussion:', error);
+                alert('Failed to finalize discussion: ' + error.message);
+                
+                // Reset button
+                button.disabled = false;
+                button.innerHTML = originalText;
+                feather.replace();
+            }
+        };
+
+        window.deleteDiscussion = async function(discussionId) {
+            if (!confirm('Are you sure you want to DELETE this discussion? This will permanently remove the discussion and all its comments. This action cannot be undone.')) {
+                return;
+            }
+            
+            const button = document.getElementById('delete-discussion-btn');
+            const originalText = button.innerHTML;
+            
+            try {
+                // Show loading state
+                button.disabled = true;
+                button.innerHTML = '<i data-feather="loader" class="w-4 h-4 animate-spin"></i><span>Deleting...</span>';
+                feather.replace();
+                
+                const response = await fetch(`/api/discussions/${discussionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    alert('Discussion deleted successfully!');
+                    window.location.href = '/discussions'; // Redirect to discussions list
+                } else {
+                    throw new Error(result.message || 'Failed to delete discussion');
+                }
+            } catch (error) {
+                console.error('Error deleting discussion:', error);
+                alert('Failed to delete discussion: ' + error.message);
+                
+                // Reset button
+                button.disabled = false;
+                button.innerHTML = originalText;
+                feather.replace();
+            }
+        };
+</script>

@@ -31,14 +31,13 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     const dbConfig = this.configService.database;
     
     this.database = new Database(dbConfig.path, {
-      verbose: dbConfig.options.verbose ? this.logger.debug.bind(this.logger) : null,
+      verbose: null, // Disabled to reduce log noise
     });
 
     // Apply SQLite optimizations
     const pragmas = dbConfig.options.pragma;
     Object.entries(pragmas).forEach(([key, value]) => {
       this.database.pragma(`${key} = ${value}`);
-      this.logger.debug(`Applied pragma: ${key} = ${value}`);
     });
 
     this.logger.log(`📁 Connected to SQLite database: ${dbConfig.path}`);

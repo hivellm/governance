@@ -296,25 +296,6 @@ export class WebController {
     }
   }
 
-  @Post('proposals')
-  async createProposal(@Body() body: any, @Res() res: Response) {
-    try {
-      const proposal = await this.proposalsService.createProposal(body.authorId, {
-        title: body.title,
-        content: body.content,
-        type: body.type || 'standards',
-        metadata: {
-          priority: body.priority || 'medium',
-          estimatedEffort: body.estimatedEffort
-        }
-      });
-      
-      res.redirect(`/proposals/${proposal.id}`);
-    } catch (error) {
-      this.logger.error(`Error creating proposal: ${error.message}`);
-      res.redirect('/proposals/new?error=' + encodeURIComponent(error.message));
-    }
-  }
 
   @Get('agents')
   @Render('agents/list')
@@ -411,6 +392,26 @@ export class WebController {
     }
   }
 
+  @Get('discussions/new')
+  @Render('discussions/new')
+  async newDiscussion(@Query() query: any) {
+    try {
+      const proposals = await this.proposalsService.findAll({ page: 1, limit: 100 });
+      
+      return {
+        title: 'New Discussion - BIP-06 Governance',
+        proposals: proposals.items,
+        selectedProposalId: query.proposalId
+      };
+    } catch (error) {
+      this.logger.error(`Error loading new discussion form: ${error.message}`);
+      return {
+        title: 'New Discussion - Error',
+        error: error.message
+      };
+    }
+  }
+
   @Get('discussions/:id')
   @Render('discussions/detail')
   async discussionDetail(@Param('id') id: string) {
@@ -437,47 +438,6 @@ export class WebController {
     }
   }
 
-  @Post('discussions/:id/comments')
-  async addComment(@Param('id') id: string, @Body() body: any, @Res() res: Response) {
-    try {
-      await this.discussionsService.addComment({
-        discussionId: id,
-        authorId: body.authorId,
-        type: body.type || 'comment',
-        content: body.content,
-        parentId: body.parentId || undefined
-      });
-      
-      res.redirect(`/discussions/${id}`);
-    } catch (error) {
-      this.logger.error(`Error adding comment: ${error.message}`);
-      res.redirect(`/discussions/${id}?error=` + encodeURIComponent(error.message));
-    }
-  }
-
-  @Post('proposals/:id/advance/:phase')
-  async advanceProposal(@Param('id') id: string, @Param('phase') phase: string, @Res() res: Response) {
-    try {
-      switch (phase) {
-        case 'discussion':
-          await this.proposalsService.advanceToDiscussion(id, 'web-user');
-          break;
-        case 'voting':
-          await this.proposalsService.advanceToVoting(id, 'web-user');
-          break;
-        case 'finalize':
-          await this.proposalsService.finalizeProposal(id, 'web-user');
-          break;
-        default:
-          throw new Error(`Unknown phase: ${phase}`);
-      }
-      
-      res.redirect(`/proposals/${id}`);
-    } catch (error) {
-      this.logger.error(`Error advancing proposal ${id}: ${error.message}`);
-      res.redirect(`/proposals/${id}?error=` + encodeURIComponent(error.message));
-    }
-  }
 
   @Get('voting')
   @Render('voting/list')

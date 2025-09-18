@@ -30,30 +30,24 @@
     <!-- Actions -->
     <div class="flex items-center space-x-3">
         {{#if canAdvanceToDiscussion}}
-        <form method="POST" action="/proposals/{{proposal.id}}/advance/discussion" class="inline">
-            <button type="submit" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                <i data-feather="arrow-right" class="w-4 h-4"></i>
-                <span>Start Discussion</span>
-            </button>
-        </form>
+        <button onclick="advanceProposal('{{proposal.id}}', 'discussion')" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <i data-feather="arrow-right" class="w-4 h-4"></i>
+            <span>Start Discussion</span>
+        </button>
         {{/if}}
         
         {{#if canAdvanceToVoting}}
-        <form method="POST" action="/proposals/{{proposal.id}}/advance/voting" class="inline">
-            <button type="submit" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                <i data-feather="check-square" class="w-4 h-4"></i>
-                <span>Start Voting</span>
-            </button>
-        </form>
+        <button onclick="advanceProposal('{{proposal.id}}', 'voting')" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <i data-feather="check-square" class="w-4 h-4"></i>
+            <span>Start Voting</span>
+        </button>
         {{/if}}
         
         {{#if canFinalize}}
-        <form method="POST" action="/proposals/{{proposal.id}}/advance/finalize" class="inline">
-            <button type="submit" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                <i data-feather="check-circle" class="w-4 h-4"></i>
-                <span>Finalize</span>
-            </button>
-        </form>
+        <button onclick="advanceProposal('{{proposal.id}}', 'finalize')" class="inline-flex items-center space-x-2 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+            <i data-feather="check-circle" class="w-4 h-4"></i>
+            <span>Finalize</span>
+        </button>
         {{/if}}
         
         <a href="/proposals" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-300 px-4 py-2 rounded-lg transition-colors">
@@ -376,4 +370,27 @@
         }
     }, 10000); // Refresh every 10 seconds during voting
     {{/if}}
+    
+    // Function to advance proposal phase
+    async function advanceProposal(proposalId, phase) {
+        try {
+            const endpoint = phase === 'finalize' 
+                ? `/api/proposals/${proposalId}/finalize`
+                : `/api/proposals/${proposalId}/advance-to-${phase}`;
+            
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.message || 'Failed to advance proposal'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    }
 </script>

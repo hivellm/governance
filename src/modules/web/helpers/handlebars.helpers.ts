@@ -90,5 +90,92 @@ export const handlebarsHelpers = {
       return JSON.stringify(content, null, 2);
     }
     return String(content);
+  },
+
+  getModelIcon: (modelId: string) => {
+    const iconMap: Record<string, string> = {
+      // Cursor-agent models
+      'auto': 'cursor.png',
+      'gpt-5': 'openai.png',
+      'sonnet-4': 'claude-color.png',
+      'opus-4.1': 'claude-color.png',
+      
+      // Specific agent IDs from your system (no duplicates)
+      'claude-4-1-opus': 'claude-color.png',
+      'deepseek-r1-0528': 'deepseek-color.png',
+      'deepseek-v3-1': 'deepseek-color.png',
+      'gemini-2-5-flash': 'gemini-color.png',
+      'gemini-2-5-pro': 'gemini-color.png',
+      'gpt4o': 'openai.png',
+      'gpt-5-mini': 'openai.png',
+      'grok-3': 'grok.png',
+      'grok-4': 'grok.png',
+      
+      // OpenAI models
+      'openai/gpt-4o': 'openai.png',
+      'openai/gpt-4o-mini': 'openai.png',
+      'openai/chatgpt-4o-latest': 'openai.png',
+      'openai/gpt-5-mini': 'openai.png',
+      'openai/gpt-4.1-mini': 'openai.png',
+      'openai/o1-mini': 'openai.png',
+      'openai/gpt-4-turbo': 'openai.png',
+      
+      // Anthropic models
+      'anthropic/claude-3-5-sonnet-latest': 'claude-color.png',
+      'anthropic/claude-3-5-haiku-latest': 'claude-color.png',
+      'anthropic/claude-4-sonnet-20250514': 'claude-color.png',
+      'anthropic/claude-3-7-sonnet-latest': 'claude-color.png',
+      'anthropic/claude-3-opus-latest': 'claude-color.png',
+      'claude-3.7-sonnet': 'claude-color.png',
+      
+      // Google/Gemini models
+      'gemini/gemini-2.0-flash': 'gemini-color.png',
+      'gemini/gemini-2.5-pro': 'gemini-color.png',
+      'gemini/gemini-2.5-flash': 'gemini-color.png',
+      'gemini/gemini-1.5-pro-latest': 'gemini-color.png',
+      'gemini/gemini-1.5-flash-latest': 'gemini-color.png',
+      
+      // xAI/Grok models
+      'xai/grok-4-latest': 'grok.png',
+      'xai/grok-3-latest': 'grok.png',
+      'xai/grok-3-fast-latest': 'grok.png',
+      'xai/grok-3-mini-latest': 'grok.png',
+      'xai/grok-code-fast-1': 'grok.png',
+      
+      // DeepSeek models
+      'deepseek/deepseek-v3': 'deepseek-color.png',
+      'deepseek/deepseek-r1': 'deepseek-color.png',
+      'deepseek/deepseek-chat': 'deepseek-color.png',
+      'deepseek/deepseek-reasoner': 'deepseek-color.png',
+      
+      // Groq models
+      'groq/llama-3.1-70b-versatile': 'groq.png',
+      'groq/llama-3.1-8b-instant': 'groq.png',
+      'groq/llama-3.3-70b-versatile': 'groq.png'
+    };
+    
+    // More flexible matching for complex model IDs
+    const modelKey = modelId.toLowerCase();
+    
+    // Direct match first
+    if (iconMap[modelId]) return iconMap[modelId];
+    
+    // Fuzzy matching
+    if (modelKey.includes('gpt') || modelKey.includes('openai')) return 'openai.png';
+    if (modelKey.includes('claude') || modelKey.includes('anthropic') || modelKey.includes('sonnet') || modelKey.includes('opus') || modelKey.includes('haiku')) return 'claude-color.png';
+    if (modelKey.includes('gemini') || modelKey.includes('google')) return 'gemini-color.png';
+    if (modelKey.includes('grok') || modelKey.includes('xai')) return 'grok.png';
+    if (modelKey.includes('deepseek')) return 'deepseek-color.png';
+    if (modelKey.includes('llama') || modelKey.includes('groq')) return 'groq.png';
+    if (modelKey.includes('mistral')) return 'mistral-color.png';
+    if (modelKey.includes('cohere')) return 'cohere-color.png';
+    if (modelKey.includes('meta')) return 'meta-color.png';
+    if (modelKey.includes('microsoft')) return 'microsoft-color.png';
+    if (modelKey.includes('hugging')) return 'huggingface-color.png';
+    if (modelKey.includes('perplexity')) return 'perplexity-color.png';
+    if (modelKey.includes('bedrock')) return 'bedrock-color.png';
+    if (modelKey.includes('ollama')) return 'ollama.png';
+    
+    return 'cursor.png'; // Default fallback
   }
 };

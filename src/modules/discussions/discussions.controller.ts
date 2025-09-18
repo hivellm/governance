@@ -4,10 +4,12 @@ import {
   Post, 
   Put, 
   Body, 
+  Delete,
   Param, 
   Query, 
   HttpStatus,
-  Logger
+  Logger,
+  BadRequestException
 } from '@nestjs/common';
 import { 
   ApiTags, 
@@ -18,6 +20,7 @@ import {
   ApiBody
 } from '@nestjs/swagger';
 import { DiscussionsService } from './discussions.service';
+import { DiscussionOrchestratorService } from './services/discussion-orchestrator.service';
 import { 
   CreateDiscussionDto, 
   CreateCommentDto, 
@@ -38,7 +41,10 @@ import {
 export class DiscussionsController {
   private readonly logger = new Logger(DiscussionsController.name);
 
-  constructor(private readonly discussionsService: DiscussionsService) {}
+  constructor(
+    private readonly discussionsService: DiscussionsService,
+    private readonly discussionOrchestrator: DiscussionOrchestratorService
+  ) {}
 
   @Post()
   @ApiOperation({ 
@@ -311,5 +317,175 @@ export class DiscussionsController {
     
     this.logger.log(`✅ Summary generated for discussion: ${id}`);
     return summary;
+  }
+
+  @Post(':id/orchestrate')
+  @ApiOperation({ 
+    summary: 'Manually trigger AI orchestration',
+    description: 'Manually trigger AI models to comment on the discussion'
+  })
+  @ApiParam({ name: 'id', description: 'Discussion ID' })
+  @ApiResponse({ 
+    status: HttpStatus.OK, 
+    description: 'AI orchestration triggered successfully'
+  })
+  async triggerOrchestration(@Param('id') id: string): Promise<{ message: string; status: string; discussionId?: string; proposalId?: string }> {
+    this.logger.log(`🎭 Manually triggering AI orchestration for discussion: ${id}`);
+    
+    try {
+      // Get discussion details
+      const discussion = await this.discussionsService.getDiscussion(id);
+      
+      // Trigger orchestration manually
+      await this.discussionOrchestrator.handleDiscussionCreated(discussion);
+      
+      return {
+        message: `AI orchestration triggered for discussion ${id}`,
+        status: 'orchestrating',
+        discussionId: id,
+        proposalId: discussion.proposalId
+      };
+    } catch (error) {
+      this.logger.error(`Error triggering orchestration: ${error.message}`);
+      throw error;
+    }
+  }
+
+  @Post('recalculate-participants')
+  @ApiOperation({ summary: 'Recalculate participants for all discussions' })
+  @ApiResponse({ status: 200, description: 'Participants recalculated successfully' })
+  async recalculateParticipants() {
+    this.logger.log('Manual recalculation of participants triggered');
+    
+    try {
+      await this.discussionsService.recalculateAllParticipants();
+      
+      return {
+        success: true,
+        message: 'Participants recalculated successfully'
+      };
+    } catch (error) {
+      this.logger.error(`Failed to recalculate participants: ${error.message}`);
+      throw new BadRequestException(`Failed to recalculate participants: ${error.message}`);
+    }
+  }
+
+  @Post('check-timeouts')
+  @ApiOperation({ summary: 'Check and finalize discussions that have exceeded timeout' })
+  @ApiResponse({ status: 200, description: 'Timeout check completed' })
+  async checkTimeouts() {
+    this.logger.log('Manual timeout check triggered');
+    
+    try {
+      const result = await this.discussionsService.checkAndFinalizeTimeoutDiscussions();
+      
+      return {
+        success: true,
+        message: `Checked ${result.checked} discussions, finalized ${result.finalized.length}`,
+        ...result
+      };
+    } catch (error) {
+      this.logger.error(`Failed to check timeouts: ${error.message}`);
+      throw new BadRequestException(`Failed to check timeouts: ${error.message}`);
+    }
+  }
+
+  @Post(':id/finalize-timeout')
+  @ApiOperation({ summary: 'Finalize a specific discussion due to timeout' })
+  @ApiParam({ name: 'id', description: 'Discussion ID' })
+  @ApiResponse({ status: 200, description: 'Discussion finalized successfully' })
+  async finalizeTimeout(@Param('id') discussionId: string) {
+    this.logger.log(`Manual timeout finalization for discussion: ${discussionId}`);
+    
+    try {
+      await this.discussionsService.finalizeDiscussion(discussionId, 'timeout');
+      
+      return {
+        success: true,
+        message: `Discussion ${discussionId} finalized due to timeout`,
+        discussionId
+      };
+    } catch (error) {
+      this.logger.error(`Failed to finalize discussion ${discussionId}: ${error.message}`);
+      throw new BadRequestException(`Failed to finalize discussion: ${error.message}`);
+    }
+  }
+
+  @Post(':id/restart')
+  @ApiOperation({ summary: 'Restart AI orchestration for a discussion' })
+  @ApiParam({ name: 'id', description: 'Discussion ID' })
+  @ApiResponse({ status: 200, description: 'Discussion restarted successfully' })
+  async restartDiscussion(@Param('id') discussionId: string) {
+    this.logger.log(`Manual restart for discussion: ${discussionId}`);
+    
+    try {
+      // Get discussion details
+      const discussion = await this.discussionsService.getDiscussion(discussionId);
+      
+      // Check if discussion is still active
+      if (discussion.status !== 'active') {
+        throw new BadRequestException('Only active discussions can be restarted');
+      }
+      
+      // Check if discussion has not timed out
+      if (discussion.timeoutAt && new Date() > new Date(discussion.timeoutAt)) {
+        throw new BadRequestException('Discussion has timed out and cannot be restarted');
+      }
+      
+      // Trigger AI orchestration
+      await this.discussionOrchestrator.handleDiscussionCreated(discussion);
+      
+      return {
+        success: true,
+        message: `Discussion ${discussionId} restarted successfully`,
+        discussionId,
+        status: 'restarted'
+      };
+    } catch (error) {
+      this.logger.error(`Failed to restart discussion ${discussionId}: ${error.message}`);
+      throw new BadRequestException(`Failed to restart discussion: ${error.message}`);
+    }
+  }
+
+  @Post(':id/finalize')
+  @ApiOperation({ summary: 'Manually finalize a discussion' })
+  @ApiParam({ name: 'id', description: 'Discussion ID' })
+  @ApiResponse({ status: 200, description: 'Discussion finalized successfully' })
+  async finalizeDiscussion(@Param('id') discussionId: string) {
+    this.logger.log(`Manual finalization for discussion: ${discussionId}`);
+    
+    try {
+      await this.discussionsService.finalizeDiscussion(discussionId, 'manual');
+      
+      return {
+        success: true,
+        message: `Discussion ${discussionId} finalized successfully`,
+        discussionId
+      };
+    } catch (error) {
+      this.logger.error(`Failed to finalize discussion ${discussionId}: ${error.message}`);
+      throw new BadRequestException(`Failed to finalize discussion: ${error.message}`);
+    }
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete a discussion and all its comments' })
+  @ApiParam({ name: 'id', description: 'Discussion ID' })
+  @ApiResponse({ status: 200, description: 'Discussion deleted successfully' })
+  async deleteDiscussion(@Param('id') discussionId: string) {
+    this.logger.log(`Deleting discussion: ${discussionId}`);
+    
+    try {
+      await this.discussionsService.deleteDiscussion(discussionId);
+      
+      return {
+        success: true,
+        message: `Discussion ${discussionId} deleted successfully`,
+        discussionId
+      };
+    } catch (error) {
+      this.logger.error(`Failed to delete discussion ${discussionId}: ${error.message}`);
+      throw new BadRequestException(`Failed to delete discussion: ${error.message}`);
+    }
   }
 }

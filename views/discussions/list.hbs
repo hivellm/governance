@@ -76,21 +76,21 @@
             </thead>
             <tbody>
                 {{#each discussions}}
-                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors" data-discussion-id="{{id}}">
                     <td class="p-4">
                         <div>
-                            <a href="/discussions/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">
+                            <a href="/discussions/{{id}}" class="font-medium text-gray-100 hover:text-gray-300">
                                 {{#if title}}{{title}}{{else}}Discussion for {{proposalId}}{{/if}}
                             </a>
                             <p class="text-sm text-gray-500 mt-1">{{id}}</p>
                         </div>
                     </td>
                     <td class="p-4">
-                        <a href="/proposals/{{proposalId}}" class="text-blue-400 hover:text-blue-300 font-mono">{{proposalId}}</a>
+                        <a href="/proposals/{{proposalId}}" class="text-gray-300 hover:text-gray-200 font-mono">{{proposalId}}</a>
                     </td>
                     <td class="p-4">
                         <div class="flex items-center space-x-2">
-                            <span class="text-gray-300">{{participants.length}}</span>
+                            <span class="text-gray-300" data-participants>{{participants.length}}</span>
                             <i data-feather="users" class="w-4 h-4 text-gray-500"></i>
                         </div>
                     </td>
@@ -160,4 +160,28 @@
 
 <script>
     feather.replace();
+    
+    // Auto-refresh discussions list to show updated participant counts
+    setInterval(async () => {
+        if (!document.hidden && window.location.pathname === '/discussions') {
+            try {
+                // Soft refresh - just update participant counts without full reload
+                const response = await fetch('/api/discussions');
+                const data = await response.json();
+                
+                // Update participant counts in the table
+                data.items.forEach(discussion => {
+                    const row = document.querySelector(`[data-discussion-id="${discussion.id}"]`);
+                    if (row) {
+                        const participantCell = row.querySelector('[data-participants]');
+                        if (participantCell) {
+                            participantCell.textContent = discussion.participants.length;
+                        }
+                    }
+                });
+            } catch (error) {
+                console.warn('Discussion list refresh failed:', error);
+            }
+        }
+    }, 15000); // Check every 15 seconds
 </script>
