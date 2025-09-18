@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
+import { PermissionsService } from './services/permissions.service';
 import { 
   IAgent, 
   AgentRole, 
@@ -15,7 +16,10 @@ import {
 export class AgentsService {
   private readonly logger = new Logger(AgentsService.name);
 
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly databaseService: DatabaseService,
+    private readonly permissionsService: PermissionsService
+  ) {}
 
   /**
    * Create a new agent
@@ -323,9 +327,9 @@ export class AgentsService {
   }
 
   /**
-   * Check if agent has specific permission
+   * Check if agent has specific permission (legacy method)
    */
-  async hasPermission(id: string, permission: keyof AgentPermissions): Promise<boolean> {
+  async hasPermissionLegacy(id: string, permission: keyof AgentPermissions): Promise<boolean> {
     try {
       const agent = await this.findById(id);
       return agent.permissions[permission] as boolean;
@@ -410,34 +414,19 @@ export class AgentsService {
     roles: AgentRole[], 
     overrides?: Partial<AgentPermissions>
   ): AgentPermissions {
-    // Determine the highest permission level based on roles
-    let level = PermissionLevel.BASIC;
+    // Use the permissions service to generate permissions
+    const basePermissions = this.permissionsService.generatePermissionsFromRoles(roles);
     
-    if (roles.includes(AgentRole.MEDIATOR)) {
-      level = PermissionLevel.ADMIN;
-    } else if (roles.includes(AgentRole.REVIEWER) || roles.includes(AgentRole.EXECUTOR)) {
-      level = PermissionLevel.ADVANCED;
-    } else if (roles.includes(AgentRole.PROPOSER) || roles.includes(AgentRole.VOTER) || roles.includes(AgentRole.SUMMARIZER)) {
-      level = PermissionLevel.STANDARD;
-    }
-
-    // Generate base permissions
-    const permissions: AgentPermissions = {
-      level,
-      canPropose: roles.includes(AgentRole.PROPOSER),
-      canDiscuss: roles.includes(AgentRole.DISCUSSANT) || roles.length > 0, // All roles can discuss
-      canReview: roles.includes(AgentRole.REVIEWER),
-      canVote: roles.includes(AgentRole.VOTER),
-      canExecute: roles.includes(AgentRole.EXECUTOR),
-      canMediate: roles.includes(AgentRole.MEDIATOR),
-      canSummarize: roles.includes(AgentRole.SUMMARIZER),
-      maxProposalsPerDay: this.getMaxProposalsPerDay(level),
-      maxDiscussionsPerDay: this.getMaxDiscussionsPerDay(level),
+    // Add legacy fields for backward compatibility
+    const enhancedPermissions: AgentPermissions = {
+      ...basePermissions,
+      maxProposalsPerDay: this.getMaxProposalsPerDay(basePermissions.level),
+      maxDiscussionsPerDay: this.getMaxDiscussionsPerDay(basePermissions.level),
       maxVotesPerSession: 1, // Standard for all agents
     };
 
-    // Apply overrides
-    return { ...permissions, ...overrides };
+    // Apply overrides if provided
+    return { ...enhancedPermissions, ...overrides };
   }
 
   private getMaxProposalsPerDay(level: PermissionLevel): number {
@@ -458,6 +447,82 @@ export class AgentsService {
       case PermissionLevel.ADMIN: return 50;
       default: return 5;
     }
+  }
+
+  /**
+   * Check if an agent has permission to perform an action
+   */
+  async hasPermission(
+    agentId: string,
+    action: string,
+    resource: string,
+    context?: Record<string, any>
+  ): Promise<{
+    allowed: boolean;
+    reason?: string;
+    requiredLevel?: PermissionLevel;
+  }> {
+    const agent = await this.findById(agentId);
+    
+    return this.permissionsService.hasPermission(
+      agentId,
+      agent.roles,
+      action,
+      resource,
+      context
+    );
+  }
+
+  /**
+   * Validate role assignment compatibility
+   */
+  async validateRoleAssignment(roles: AgentRole[]): Promise<{
+    valid: boolean;
+    conflicts?: string[];
+  }> {
+    const result = this.permissionsService.areRolesCompatible(roles);
+    return {
+      valid: result.compatible,
+      conflicts: result.conflicts
+    };
+  }
+
+  /**
+   * Get suggested roles based on desired permissions
+   */
+  async suggestRoles(desiredPermissions: string[]): Promise<{
+    recommendedRoles: AgentRole[];
+    coverage: number;
+  }> {
+    return this.permissionsService.suggestRoles(desiredPermissions);
+  }
+
+  /**
+   * Get all available roles and their permissions
+   */
+  async getAvailableRoles(): Promise<any[]> {
+    return this.permissionsService.getAllRoles();
+  }
+
+  /**
+   * Get detailed permissions for an agent
+   */
+  async getAgentPermissions(agentId: string): Promise<{
+    agent: IAgent;
+    permissions: any[];
+    roleMatrix: any[];
+  }> {
+    const agent = await this.findById(agentId);
+    const permissions = this.permissionsService.getPermissionsForRoles(agent.roles);
+    const roleMatrix = agent.roles.map(role => 
+      this.permissionsService.getRoleMatrix(role)
+    ).filter(Boolean);
+
+    return {
+      agent,
+      permissions,
+      roleMatrix
+    };
   }
 
   private mapRowToAgent(row: any): IAgent {

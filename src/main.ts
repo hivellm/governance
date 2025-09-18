@@ -6,9 +6,25 @@ import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { json, urlencoded } from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
+import * as hbs from 'hbs';
+import { handlebarsHelpers } from './modules/web/helpers/handlebars.helpers';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Configure view engine
+  app.setBaseViewsDir(join(process.cwd(), 'views'));
+  app.setViewEngine('hbs');
+
+  // Register Handlebars helpers
+  Object.keys(handlebarsHelpers).forEach(helperName => {
+    hbs.registerHelper(helperName, handlebarsHelpers[helperName as keyof typeof handlebarsHelpers]);
+  });
+
+  // Serve static files
+  app.useStaticAssets(join(process.cwd(), 'public'));
 
   // Increase body size limits to handle large governance payloads (e.g., BIP content)
   app.use(json({ limit: '5mb' }));
@@ -50,10 +66,11 @@ async function bootstrap() {
 
   console.log('\n🚀 HiveLLM Governance System started successfully!');
   console.log(`📊 API Server: http://localhost:${port}`);
+  console.log(`🌐 Web Interface: http://localhost:${port}/dashboard`);
   console.log(`📋 Swagger Docs: http://localhost:${port}/api`);
   // console.log(`📈 GraphQL Playground: http://localhost:${port}/graphql`);
   console.log(`📁 Database: governance.db (SQLite)`);
-  console.log(`🎯 BIP-06 Implementation - Phase 1: Core Infrastructure\n`);
+  console.log(`🎯 BIP-06 Implementation - Phase 2: Discussion Framework\n`);
 }
 
 bootstrap().catch((error) => {

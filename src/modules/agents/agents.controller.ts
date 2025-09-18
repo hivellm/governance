@@ -248,45 +248,6 @@ export class AgentsController {
       }
     }
   })
-  async getAvailableRoles() {
-    this.logger.log('Getting available agent roles');
-    
-    const roleDescriptions = {
-      [AgentRole.PROPOSER]: { 
-        description: 'Can submit new proposals and respond to feedback', 
-        level: 2 
-      },
-      [AgentRole.DISCUSSANT]: { 
-        description: 'Can participate in technical debates and discussions', 
-        level: 1 
-      },
-      [AgentRole.REVIEWER]: { 
-        description: 'Can perform technical feasibility analysis and security reviews', 
-        level: 3 
-      },
-      [AgentRole.MEDIATOR]: { 
-        description: 'Can manage phase transitions and enforce protocols', 
-        level: 4 
-      },
-      [AgentRole.VOTER]: { 
-        description: 'Can cast justified votes on proposals', 
-        level: 2 
-      },
-      [AgentRole.EXECUTOR]: { 
-        description: 'Can implement approved proposals', 
-        level: 3 
-      },
-      [AgentRole.SUMMARIZER]: { 
-        description: 'Can generate discussion summaries and documentation', 
-        level: 2 
-      },
-    };
-    
-    return {
-      roles: Object.values(AgentRole),
-      descriptions: roleDescriptions,
-    };
-  }
 
   @Get(':id')
   @ApiOperation({ 
@@ -498,20 +459,6 @@ export class AgentsController {
     status: HttpStatus.NOT_FOUND,
     description: 'Agent not found',
   })
-  async checkPermission(
-    @Param('id') id: string,
-    @Param('permission') permission: string
-  ): Promise<{ agentId: string; permission: string; hasPermission: boolean }> {
-    this.logger.log(`Checking permission ${permission} for agent: ${id}`);
-    
-    const hasPermission = await this.agentsService.hasPermission(id, permission as any);
-    
-    return {
-      agentId: id,
-      permission,
-      hasPermission,
-    };
-  }
 
   @Get(':id/roles/:role')
   @ApiOperation({ 
@@ -554,6 +501,186 @@ export class AgentsController {
       role,
       hasRole,
     };
+  }
+
+  @Get(':id/permissions')
+  @ApiOperation({ 
+    summary: 'Get agent permissions',
+    description: 'Retrieve detailed permissions and role matrix for an agent'
+  })
+  @ApiParam({ name: 'id', description: 'Agent ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Agent permissions retrieved successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        agent: { type: 'object' },
+        permissions: { type: 'array' },
+        roleMatrix: { type: 'array' }
+      }
+    }
+  })
+  async getAgentPermissions(@Param('id') id: string): Promise<{
+    agent: any;
+    permissions: any[];
+    roleMatrix: any[];
+  }> {
+    this.logger.debug(`Getting permissions for agent: ${id}`);
+    return this.agentsService.getAgentPermissions(id);
+  }
+
+  @Post(':id/check-permission')
+  @ApiOperation({ 
+    summary: 'Check agent permission',
+    description: 'Validate if an agent has permission to perform a specific action'
+  })
+  @ApiParam({ name: 'id', description: 'Agent ID' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', example: 'create' },
+        resource: { type: 'string', example: 'proposals' },
+        context: { type: 'object', example: { phase: 'discussion' } }
+      },
+      required: ['action', 'resource']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Permission check result',
+    schema: {
+      type: 'object',
+      properties: {
+        allowed: { type: 'boolean' },
+        reason: { type: 'string' },
+        requiredLevel: { type: 'string' }
+      }
+    }
+  })
+  async checkPermission(
+    @Param('id') id: string,
+    @Body() body: {
+      action: string;
+      resource: string;
+      context?: Record<string, any>;
+    }
+  ): Promise<{
+    allowed: boolean;
+    reason?: string;
+    requiredLevel?: any;
+  }> {
+    this.logger.debug(`Checking permission for agent ${id}: ${body.action}:${body.resource}`);
+    
+    return this.agentsService.hasPermission(
+      id,
+      body.action,
+      body.resource,
+      body.context
+    );
+  }
+
+  @Post('validate-roles')
+  @ApiOperation({ 
+    summary: 'Validate role assignment',
+    description: 'Check if a set of roles can be assigned to the same agent'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        roles: { 
+          type: 'array', 
+          items: { type: 'string' },
+          example: ['proposer', 'voter']
+        }
+      },
+      required: ['roles']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Role validation result',
+    schema: {
+      type: 'object',
+      properties: {
+        valid: { type: 'boolean' },
+        conflicts: { type: 'array', items: { type: 'string' } }
+      }
+    }
+  })
+  async validateRoles(@Body() body: { roles: string[] }): Promise<{
+    valid: boolean;
+    conflicts?: string[];
+  }> {
+    this.logger.debug(`Validating roles: ${body.roles.join(', ')}`);
+    
+    const roles = body.roles as any[];
+    return this.agentsService.validateRoleAssignment(roles);
+  }
+
+  @Post('suggest-roles')
+  @ApiOperation({ 
+    summary: 'Suggest roles based on permissions',
+    description: 'Get recommended roles based on desired permissions'
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        desiredPermissions: { 
+          type: 'array', 
+          items: { type: 'string' },
+          example: ['create:proposals', 'vote:proposals']
+        }
+      },
+      required: ['desiredPermissions']
+    }
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Role suggestions',
+    schema: {
+      type: 'object',
+      properties: {
+        recommendedRoles: { type: 'array', items: { type: 'string' } },
+        coverage: { type: 'number' }
+      }
+    }
+  })
+  async suggestRoles(@Body() body: { desiredPermissions: string[] }): Promise<{
+    recommendedRoles: any[];
+    coverage: number;
+  }> {
+    this.logger.debug(`Suggesting roles for permissions: ${body.desiredPermissions.join(', ')}`);
+    
+    return this.agentsService.suggestRoles(body.desiredPermissions);
+  }
+
+  @Get('roles/available')
+  @ApiOperation({ 
+    summary: 'Get available roles',
+    description: 'Retrieve all available roles and their permission matrices'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Available roles',
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          role: { type: 'string' },
+          permissions: { type: 'array' },
+          level: { type: 'string' }
+        }
+      }
+    }
+  })
+  async getAvailableRoles(): Promise<any[]> {
+    this.logger.debug('Getting available roles');
+    return this.agentsService.getAvailableRoles();
   }
 
 }

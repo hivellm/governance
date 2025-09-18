@@ -1,0 +1,127 @@
+<!-- Header -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">Minutes</h1>
+        <p class="text-gray-400">Governance voting sessions and results</p>
+    </div>
+    
+    <div class="flex items-center space-x-2 text-sm text-gray-400">
+        <i data-feather="clock" class="w-4 h-4"></i>
+        <span>{{totalCount}} sessions recorded</span>
+    </div>
+</div>
+
+<!-- Sessions List -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if sessions}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">Session</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Title</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Date</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Proposals</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each sessions}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                                <span class="text-white font-medium text-sm">{{id}}</span>
+                            </div>
+                            <div>
+                                <a href="/minutes/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">Session {{id}}</a>
+                                <p class="text-sm text-gray-500">Minutes {{id}}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <div class="text-gray-200">{{#if title}}{{title}}{{else}}Voting Session {{id}}{{/if}}</div>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">
+                        {{#if date}}{{formatDate date}}{{else}}Date not set{{/if}}
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            {{#if metadata.voting_summary.total_proposals}}
+                            <span class="px-2 py-1 text-xs bg-blue-900 text-blue-300 rounded">
+                                {{metadata.voting_summary.total_proposals}} proposals
+                            </span>
+                            {{else}}
+                            <span class="text-gray-500 text-sm">No data</span>
+                            {{/if}}
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/minutes/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Details">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            <a href="/api/minutes/sessions/{{id}}" target="_blank" class="text-green-400 hover:text-green-300 text-sm" title="API Data">
+                                <i data-feather="code" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="clock" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No minutes sessions found</h3>
+        <p class="text-gray-500 mb-6">Minutes sessions contain voting results and governance decisions</p>
+    </div>
+    {{/if}}
+</div>
+
+<!-- Summary Stats -->
+{{#if sessions}}
+<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Total Sessions</p>
+                <p class="text-2xl font-bold text-gray-100">{{totalCount}}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i data-feather="clock" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Voting Results</p>
+                <p class="text-lg font-bold text-green-400">Available</p>
+            </div>
+            <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                <i data-feather="check-circle" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Governance Data</p>
+                <p class="text-lg font-bold text-purple-400">Complete</p>
+            </div>
+            <div class="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
+                <i data-feather="database" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+</div>
+{{/if}}
+
+<script>
+    feather.replace();
+</script>

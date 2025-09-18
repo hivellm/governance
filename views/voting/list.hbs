@@ -1,0 +1,259 @@
+<!-- Header -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">Voting</h1>
+        <p class="text-gray-400">Active voting sessions and results</p>
+    </div>
+    
+    <a href="/proposals?phase=discussion" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+        <i data-feather="check-square" class="w-4 h-4"></i>
+        <span>View Proposals Ready for Voting</span>
+    </a>
+</div>
+
+<!-- Voting Proposals -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if proposals}}
+    <div class="p-6 border-b border-gray-800">
+        <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+            <i data-feather="vote" class="w-5 h-5 mr-2 text-purple-500"></i>
+            Proposals in Voting Phase ({{totalCount}})
+        </h2>
+    </div>
+    
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">Proposal</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Author</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Type</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Voting Deadline</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Status</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each proposals}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div>
+                            <a href="/proposals/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">{{title}}</a>
+                            <p class="text-sm text-gray-500 mt-1">{{id}}</p>
+                        </div>
+                    </td>
+                    <td class="p-4 text-gray-300">{{authorId}}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded bg-blue-900 text-blue-300 capitalize">
+                            {{type}}
+                        </span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">
+                        {{#if votingDeadline}}
+                            {{formatDate votingDeadline}}
+                        {{else}}
+                            No deadline set
+                        {{/if}}
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-purple-900 text-purple-300">
+                            {{capitalize status}}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/proposals/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Proposal">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            
+                            <button onclick="castVote('{{id}}', 'approve')" class="text-green-400 hover:text-green-300 text-sm" title="Vote Approve">
+                                <i data-feather="thumbs-up" class="w-4 h-4"></i>
+                            </button>
+                            
+                            <button onclick="castVote('{{id}}', 'reject')" class="text-red-400 hover:text-red-300 text-sm" title="Vote Reject">
+                                <i data-feather="thumbs-down" class="w-4 h-4"></i>
+                            </button>
+                            
+                            <button onclick="castVote('{{id}}', 'abstain')" class="text-gray-400 hover:text-gray-300 text-sm" title="Vote Abstain">
+                                <i data-feather="minus" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {{#if pagination}}
+    <div class="p-4 border-t border-gray-800 flex justify-between items-center">
+        <div class="text-sm text-gray-400">
+            Showing {{proposals.length}} of {{totalCount}} voting proposals
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            {{#if pagination.hasPrev}}
+            <a href="?page={{subtract pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Previous
+            </a>
+            {{/if}}
+            
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">
+                {{pagination.current}}
+            </span>
+            
+            {{#if pagination.hasNext}}
+            <a href="?page={{add pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Next
+            </a>
+            {{/if}}
+        </div>
+    </div>
+    {{/if}}
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="check-square" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No active voting sessions</h3>
+        <p class="text-gray-500 mb-6">Proposals need to be in voting phase to appear here</p>
+        <a href="/proposals?phase=discussion" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <i data-feather="arrow-right" class="w-5 h-5"></i>
+            <span>Find Proposals Ready for Voting</span>
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<!-- Vote Modal -->
+<div id="voteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+    <div class="bg-gray-900 border border-gray-800 rounded-lg max-w-md w-full mx-4">
+        <div class="p-6 border-b border-gray-800">
+            <h3 class="text-lg font-semibold text-gray-100">Cast Vote</h3>
+        </div>
+        
+        <div class="p-6">
+            <form id="voteForm" method="POST">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Proposal: <span id="voteProposalId" class="font-mono text-blue-400"></span>
+                    </label>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        Decision: <span id="voteDecision" class="font-medium text-purple-400"></span>
+                    </label>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="agentId" class="block text-sm font-medium text-gray-300 mb-2">
+                        Agent ID <span class="text-red-400">*</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        id="agentId" 
+                        name="agentId" 
+                        required
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter your agent ID"
+                        value="web-user"
+                    >
+                </div>
+                
+                <div class="mb-6">
+                    <label for="justification" class="block text-sm font-medium text-gray-300 mb-2">
+                        Justification <span class="text-red-400">*</span>
+                    </label>
+                    <textarea 
+                        id="justification" 
+                        name="justification" 
+                        required
+                        rows="4"
+                        class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Provide a detailed justification for your vote..."
+                    ></textarea>
+                    <p class="text-xs text-gray-500 mt-1">
+                        Minimum 10 characters. Include technical reasoning and references if applicable.
+                    </p>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button type="button" onclick="closeVoteModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
+                        Cast Vote
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    feather.replace();
+    
+    let currentProposalId = null;
+    let currentDecision = null;
+    
+    function castVote(proposalId, decision) {
+        currentProposalId = proposalId;
+        currentDecision = decision;
+        
+        document.getElementById('voteProposalId').textContent = proposalId;
+        document.getElementById('voteDecision').textContent = decision.charAt(0).toUpperCase() + decision.slice(1);
+        document.getElementById('voteForm').action = `/api/voting/${proposalId}/vote`;
+        
+        // Add hidden inputs
+        const form = document.getElementById('voteForm');
+        
+        // Remove existing hidden inputs
+        form.querySelectorAll('input[type="hidden"]').forEach(input => input.remove());
+        
+        // Add decision input
+        const decisionInput = document.createElement('input');
+        decisionInput.type = 'hidden';
+        decisionInput.name = 'decision';
+        decisionInput.value = decision;
+        form.appendChild(decisionInput);
+        
+        document.getElementById('voteModal').classList.remove('hidden');
+        document.getElementById('voteModal').classList.add('flex');
+    }
+    
+    function closeVoteModal() {
+        document.getElementById('voteModal').classList.add('hidden');
+        document.getElementById('voteModal').classList.remove('flex');
+    }
+    
+    // Handle vote form submission
+    document.getElementById('voteForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const data = Object.fromEntries(formData);
+        
+        try {
+            const response = await fetch(e.target.action, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                closeVoteModal();
+                window.location.reload();
+            } else {
+                const error = await response.json();
+                alert('Error: ' + (error.message || 'Failed to cast vote'));
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+    
+    // Close modal on backdrop click
+    document.getElementById('voteModal').addEventListener('click', (e) => {
+        if (e.target.id === 'voteModal') {
+            closeVoteModal();
+        }
+    });
+</script>

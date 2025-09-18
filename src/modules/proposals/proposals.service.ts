@@ -628,4 +628,151 @@ export class ProposalsService {
 
     return this.updateProposalStatus(id, mappedStatus, mappedPhase);
   }
+
+  /**
+   * Advance proposal to discussion phase
+   */
+  async advanceToDiscussion(proposalId: string, agentId: string): Promise<IProposal> {
+    this.logger.debug(`Advancing proposal ${proposalId} to discussion phase`);
+    
+    const proposal = await this.findById(proposalId);
+    
+    if (proposal.phase !== GovernancePhase.PROPOSAL) {
+      throw new BadRequestException(`Proposal must be in ${GovernancePhase.PROPOSAL} phase to advance to discussion`);
+    }
+
+    if (proposal.status !== ProposalStatus.DRAFT) {
+      throw new BadRequestException(`Proposal must be in ${ProposalStatus.DRAFT} status to advance to discussion`);
+    }
+
+    // Update proposal to discussion phase
+    const updatedProposal = await this.updateProposalStatus(
+      proposalId, 
+      ProposalStatus.DISCUSSION, 
+      GovernancePhase.DISCUSSION
+    );
+
+    // Set discussion deadline (48 hours by default)
+    const discussionDeadline = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const db = this.databaseService.getDatabase();
+    db.prepare(`
+      UPDATE proposals 
+      SET voting_deadline = ?
+      WHERE id = ?
+    `).run(discussionDeadline.toISOString(), proposalId);
+
+    this.logger.log(`✅ Proposal ${proposalId} advanced to discussion phase`);
+    return updatedProposal;
+  }
+
+  /**
+   * Advance proposal to voting phase
+   */
+  async advanceToVoting(proposalId: string, agentId: string): Promise<IProposal> {
+    this.logger.debug(`Advancing proposal ${proposalId} to voting phase`);
+    
+    const proposal = await this.findById(proposalId);
+    
+    if (![GovernancePhase.DISCUSSION, GovernancePhase.REVISION].includes(proposal.phase)) {
+      throw new BadRequestException(`Proposal must be in discussion or revision phase to advance to voting`);
+    }
+
+    // Update proposal to voting phase
+    const updatedProposal = await this.updateProposalStatus(
+      proposalId, 
+      ProposalStatus.VOTING, 
+      GovernancePhase.VOTING
+    );
+
+    // Set voting deadline (72 hours by default)
+    const votingDeadline = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const db = this.databaseService.getDatabase();
+    db.prepare(`
+      UPDATE proposals 
+      SET voting_deadline = ?
+      WHERE id = ?
+    `).run(votingDeadline.toISOString(), proposalId);
+
+    this.logger.log(`✅ Proposal ${proposalId} advanced to voting phase`);
+    return updatedProposal;
+  }
+
+  /**
+   * Finalize proposal based on voting results
+   */
+  async finalizeProposal(proposalId: string, agentId: string): Promise<IProposal> {
+    this.logger.debug(`Finalizing proposal ${proposalId}`);
+    
+    const proposal = await this.findById(proposalId);
+    
+    if (proposal.phase !== GovernancePhase.VOTING) {
+      throw new BadRequestException(`Proposal must be in voting phase to finalize`);
+    }
+
+    // Get voting results
+    const votingResult = await this.getVotingResults(proposalId);
+    
+    // Determine final status based on voting results
+    const finalStatus = votingResult.result === 'approved' ? 
+      ProposalStatus.APPROVED : ProposalStatus.REJECTED;
+    
+    const finalPhase = finalStatus === ProposalStatus.APPROVED ? 
+      GovernancePhase.EXECUTION : GovernancePhase.RESOLUTION;
+
+    // Update proposal status
+    const updatedProposal = await this.updateProposalStatus(
+      proposalId, 
+      finalStatus, 
+      finalPhase
+    );
+
+    this.logger.log(`✅ Proposal ${proposalId} finalized with status: ${finalStatus}`);
+    return updatedProposal;
+  }
+
+  /**
+   * Check if proposal can advance to next phase
+   */
+  async canAdvancePhase(proposalId: string, targetPhase: GovernancePhase): Promise<{
+    canAdvance: boolean;
+    reasons: string[];
+  }> {
+    const proposal = await this.findById(proposalId);
+    const reasons: string[] = [];
+
+    switch (targetPhase) {
+      case GovernancePhase.DISCUSSION:
+        if (proposal.phase !== GovernancePhase.PROPOSAL) {
+          reasons.push(`Proposal must be in ${GovernancePhase.PROPOSAL} phase`);
+        }
+        if (proposal.status !== ProposalStatus.DRAFT) {
+          reasons.push(`Proposal must be in ${ProposalStatus.DRAFT} status`);
+        }
+        break;
+
+      case GovernancePhase.VOTING:
+        if (![GovernancePhase.DISCUSSION, GovernancePhase.REVISION].includes(proposal.phase)) {
+          reasons.push('Proposal must be in discussion or revision phase');
+        }
+        // Could add additional checks like minimum discussion time, participation, etc.
+        break;
+
+      case GovernancePhase.EXECUTION:
+        if (proposal.phase !== GovernancePhase.VOTING) {
+          reasons.push('Proposal must be in voting phase');
+        }
+        if (proposal.status !== ProposalStatus.APPROVED) {
+          reasons.push('Proposal must be approved to execute');
+        }
+        break;
+
+      default:
+        reasons.push(`Unsupported target phase: ${targetPhase}`);
+    }
+
+    return {
+      canAdvance: reasons.length === 0,
+      reasons
+    };
+  }
 }

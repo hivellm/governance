@@ -90,6 +90,16 @@ export class ProposalMetadataDto {
   @IsString()
   author_email?: string;
 
+  @ApiPropertyOptional({ description: 'Proposal priority level' })
+  @IsOptional()
+  @IsString()
+  priority?: string;
+
+  @ApiPropertyOptional({ description: 'Estimated effort for implementation' })
+  @IsOptional()
+  @IsString()
+  estimatedEffort?: string;
+
   @ApiPropertyOptional({ description: 'Required BIPs or proposals', type: [String] })
   @IsOptional()
   @IsString({ each: true })
@@ -132,10 +142,6 @@ export class ProposalMetadataDto {
   @IsString({ each: true })
   tags?: string[];
 
-  @ApiPropertyOptional({ description: 'Estimated effort' })
-  @IsOptional()
-  @IsString()
-  estimatedEffort?: string;
 
   @ApiPropertyOptional({ description: 'Benefits', type: [String] })
   @IsOptional()

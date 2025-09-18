@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
+import { v4 as uuidv4 } from 'uuid';
 import { DatabaseService } from '../../database/database.service';
 import { AgentsService } from '../agents/agents.service';
 import { ProposalsService } from '../proposals/proposals.service';
@@ -291,5 +292,320 @@ export class VotingService {
       vote.weight,
       vote.castAt.toISOString(),
     ]);
+  }
+
+  /**
+   * Enhanced voting with mandatory justifications (Phase 3 feature)
+   */
+  async castVoteWithJustification(
+    sessionId: string,
+    agentId: string,
+    decision: VoteDecision,
+    justification: string,
+    metadata?: Record<string, any>
+  ): Promise<VoteCast> {
+    this.logger.log(`🗳️ Casting justified vote: ${agentId} -> ${decision}`);
+
+    // Validate justification
+    if (!justification || justification.trim().length < 10) {
+      throw new BadRequestException('Vote justification must be at least 10 characters long');
+    }
+
+    // Check for inappropriate content (basic validation)
+    if (this.containsInappropriateContent(justification)) {
+      throw new BadRequestException('Vote justification contains inappropriate content');
+    }
+
+    // Create enhanced vote with justification
+    const vote: VoteCast = {
+      id: uuidv4(),
+      sessionId,
+      agentId,
+      decision,
+      justification: justification.trim(),
+      weight: 1.0, // Default weight, could be calculated based on agent expertise
+      castAt: new Date(),
+      metadata: {
+        ...metadata,
+        justificationLength: justification.trim().length,
+        hasReferences: this.extractReferences(justification).length > 0,
+        sentimentScore: this.calculateJustificationSentiment(justification)
+      }
+    };
+
+    // Store vote with enhanced metadata
+    await this.storeVote(vote);
+
+    this.logger.log(`✅ Justified vote recorded: ${agentId} -> ${decision} (${justification.length} chars)`);
+    return vote;
+  }
+
+  /**
+   * Validate vote justification quality
+   */
+  async validateJustification(justification: string): Promise<{
+    isValid: boolean;
+    score: number;
+    feedback: string[];
+    suggestions: string[];
+  }> {
+    const feedback: string[] = [];
+    const suggestions: string[] = [];
+    let score = 0;
+
+    // Length check
+    if (justification.length < 10) {
+      feedback.push('Justification too short');
+    } else if (justification.length > 1000) {
+      feedback.push('Justification too long');
+      suggestions.push('Consider summarizing key points');
+    } else {
+      score += 20;
+    }
+
+    // Content quality checks
+    const hasReferences = this.extractReferences(justification).length > 0;
+    if (hasReferences) {
+      score += 30;
+      feedback.push('Good use of references');
+    } else {
+      suggestions.push('Consider adding references to support your reasoning');
+    }
+
+    // Technical reasoning check
+    const hasTechnicalTerms = this.containsTechnicalReasoning(justification);
+    if (hasTechnicalTerms) {
+      score += 25;
+      feedback.push('Contains technical reasoning');
+    } else {
+      suggestions.push('Consider adding technical analysis');
+    }
+
+    // Constructive tone check
+    const isConstructive = this.hasConstructiveTone(justification);
+    if (isConstructive) {
+      score += 25;
+      feedback.push('Constructive and professional tone');
+    } else {
+      suggestions.push('Use more constructive language');
+    }
+
+    const isValid = score >= 50 && feedback.length > 0;
+
+    return {
+      isValid,
+      score,
+      feedback,
+      suggestions
+    };
+  }
+
+  /**
+   * Get voting session with enhanced analytics
+   */
+  async getEnhancedVotingResults(sessionId: string): Promise<{
+    results: VotingResults;
+    justificationAnalysis: {
+      averageLength: number;
+      sentimentDistribution: Record<string, number>;
+      qualityScores: number[];
+      topReferences: string[];
+    };
+    participationMetrics: {
+      totalEligible: number;
+      totalParticipated: number;
+      participationRate: number;
+      roleDistribution: Record<string, number>;
+    };
+  }> {
+    const results = await this.getVotingResults(sessionId);
+    
+    // Get all votes with justifications
+    const db = this.databaseService.getDatabase();
+    const votes = db.prepare(`
+      SELECT * FROM votes 
+      WHERE proposal_id = (
+        SELECT proposal_id FROM voting_sessions WHERE id = ?
+      )
+    `).all(sessionId);
+
+    // Analyze justifications
+    const justifications = votes
+      .filter((v: any) => v.justification)
+      .map((v: any) => v.justification);
+
+    const justificationAnalysis = {
+      averageLength: justifications.length > 0 
+        ? justifications.reduce((sum: number, j: string) => sum + j.length, 0) / justifications.length 
+        : 0,
+      sentimentDistribution: this.analyzeJustificationSentiments(justifications),
+      qualityScores: justifications.map((j: string) => this.calculateJustificationQuality(j)),
+      topReferences: this.extractTopReferences(justifications)
+    };
+
+    // Analyze participation
+    const eligibleAgents = await this.getEligibleVotersFromSession(sessionId);
+    const participationMetrics = {
+      totalEligible: eligibleAgents.length,
+      totalParticipated: votes.length,
+      participationRate: votes.length / Math.max(eligibleAgents.length, 1),
+      roleDistribution: this.calculateRoleDistribution(votes, eligibleAgents)
+    };
+
+    return {
+      results,
+      justificationAnalysis,
+      participationMetrics
+    };
+  }
+
+  // Private helper methods for justification analysis
+
+  private containsInappropriateContent(text: string): boolean {
+    // Basic inappropriate content detection
+    const inappropriateWords = ['spam', 'scam', 'attack', 'malicious'];
+    return inappropriateWords.some(word => text.toLowerCase().includes(word));
+  }
+
+  private extractReferences(text: string): string[] {
+    // Extract references like "Section 3.2", "BIP-05", etc.
+    const referencePatterns = [
+      /(?:section|sec\.?)\s*(\d+(?:\.\d+)*)/gi,
+      /BIP-(\d+)/gi,
+      /(?:proposal|prop\.?)\s*([A-Z0-9-]+)/gi
+    ];
+
+    const references: string[] = [];
+    referencePatterns.forEach(pattern => {
+      const matches = text.match(pattern);
+      if (matches) {
+        references.push(...matches);
+      }
+    });
+
+    return [...new Set(references)]; // Remove duplicates
+  }
+
+  private calculateJustificationSentiment(text: string): number {
+    // Simple sentiment scoring (-1 to 1)
+    const positiveWords = ['good', 'excellent', 'approve', 'support', 'beneficial'];
+    const negativeWords = ['bad', 'poor', 'reject', 'oppose', 'harmful'];
+
+    let score = 0;
+    const words = text.toLowerCase().split(/\s+/);
+
+    words.forEach(word => {
+      if (positiveWords.includes(word)) score += 1;
+      if (negativeWords.includes(word)) score -= 1;
+    });
+
+    return Math.max(-1, Math.min(1, score / words.length));
+  }
+
+  private containsTechnicalReasoning(text: string): boolean {
+    const technicalTerms = [
+      'performance', 'scalability', 'security', 'implementation', 'algorithm',
+      'architecture', 'database', 'api', 'interface', 'protocol', 'framework'
+    ];
+    
+    const lowerText = text.toLowerCase();
+    return technicalTerms.some(term => lowerText.includes(term));
+  }
+
+  private hasConstructiveTone(text: string): boolean {
+    const constructiveIndicators = [
+      'suggest', 'recommend', 'consider', 'improve', 'enhance',
+      'alternative', 'solution', 'approach', 'benefit'
+    ];
+    
+    const destructiveIndicators = [
+      'terrible', 'stupid', 'waste', 'pointless', 'useless'
+    ];
+
+    const lowerText = text.toLowerCase();
+    const constructiveCount = constructiveIndicators.filter(word => lowerText.includes(word)).length;
+    const destructiveCount = destructiveIndicators.filter(word => lowerText.includes(word)).length;
+
+    return constructiveCount > destructiveCount;
+  }
+
+  private analyzeJustificationSentiments(justifications: string[]): Record<string, number> {
+    const sentiments = { positive: 0, neutral: 0, negative: 0 };
+    
+    justifications.forEach(justification => {
+      const sentiment = this.calculateJustificationSentiment(justification);
+      if (sentiment > 0.1) sentiments.positive++;
+      else if (sentiment < -0.1) sentiments.negative++;
+      else sentiments.neutral++;
+    });
+
+    return sentiments;
+  }
+
+  private calculateJustificationQuality(justification: string): number {
+    let score = 0;
+    
+    // Length score (0-25 points)
+    const length = justification.length;
+    if (length >= 50 && length <= 500) score += 25;
+    else if (length >= 20) score += 15;
+
+    // Reference score (0-25 points)
+    const references = this.extractReferences(justification);
+    score += Math.min(references.length * 10, 25);
+
+    // Technical reasoning score (0-25 points)
+    if (this.containsTechnicalReasoning(justification)) score += 25;
+
+    // Constructive tone score (0-25 points)
+    if (this.hasConstructiveTone(justification)) score += 25;
+
+    return Math.min(score, 100);
+  }
+
+  private extractTopReferences(justifications: string[]): string[] {
+    const allReferences: string[] = [];
+    justifications.forEach(j => {
+      allReferences.push(...this.extractReferences(j));
+    });
+
+    // Count occurrences
+    const refCounts: Record<string, number> = {};
+    allReferences.forEach(ref => {
+      refCounts[ref] = (refCounts[ref] || 0) + 1;
+    });
+
+    // Return top 5 most referenced
+    return Object.entries(refCounts)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 5)
+      .map(([ref]) => ref);
+  }
+
+  private async getEligibleVotersFromSession(sessionId: string): Promise<any[]> {
+    // Get voting session to find eligible agents
+    const db = this.databaseService.getDatabase();
+    const session = db.prepare('SELECT * FROM voting_sessions WHERE id = ?').get(sessionId) as any;
+    
+    if (!session) {
+      return [];
+    }
+
+    const eligibleAgents = JSON.parse(session.eligible_agents || '[]');
+    return eligibleAgents;
+  }
+
+  private calculateRoleDistribution(votes: any[], eligibleAgents: any[]): Record<string, number> {
+    // This would require agent role information - simplified for now
+    return {
+      'proposer': votes.filter((v: any) => v.agent_id.includes('proposer')).length,
+      'reviewer': votes.filter((v: any) => v.agent_id.includes('reviewer')).length,
+      'mediator': votes.filter((v: any) => v.agent_id.includes('mediator')).length,
+      'other': votes.length - votes.filter((v: any) => 
+        v.agent_id.includes('proposer') || 
+        v.agent_id.includes('reviewer') || 
+        v.agent_id.includes('mediator')
+      ).length
+    };
   }
 }

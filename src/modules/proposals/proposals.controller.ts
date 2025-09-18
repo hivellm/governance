@@ -419,4 +419,118 @@ export class ProposalsController {
     return proposal as Proposal;
   }
 
+  @Post(':id/advance-to-discussion')
+  @ApiOperation({ 
+    summary: 'Advance proposal to discussion phase',
+    description: 'Move a proposal from draft to discussion phase'
+  })
+  @ApiParam({ name: 'id', description: 'Proposal ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Proposal advanced to discussion phase',
+    type: Proposal 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid phase transition' 
+  })
+  async advanceToDiscussion(
+    @Param('id') id: string,
+    @Req() request: any
+  ): Promise<Proposal> {
+    this.logger.log(`🔄 Advancing proposal ${id} to discussion phase`);
+    
+    const agentId = request.user?.id || 'system';
+    const result = await this.proposalsService.advanceToDiscussion(id, agentId);
+    
+    this.logger.log(`✅ Proposal ${id} advanced to discussion phase`);
+    return result as Proposal;
+  }
+
+  @Post(':id/advance-to-voting')
+  @ApiOperation({ 
+    summary: 'Advance proposal to voting phase',
+    description: 'Move a proposal from discussion/revision to voting phase'
+  })
+  @ApiParam({ name: 'id', description: 'Proposal ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Proposal advanced to voting phase',
+    type: Proposal 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid phase transition' 
+  })
+  async advanceToVoting(
+    @Param('id') id: string,
+    @Req() request: any
+  ): Promise<Proposal> {
+    this.logger.log(`🔄 Advancing proposal ${id} to voting phase`);
+    
+    const agentId = request.user?.id || 'system';
+    const result = await this.proposalsService.advanceToVoting(id, agentId);
+    
+    this.logger.log(`✅ Proposal ${id} advanced to voting phase`);
+    return result as Proposal;
+  }
+
+  @Post(':id/finalize')
+  @ApiOperation({ 
+    summary: 'Finalize proposal based on voting results',
+    description: 'Complete the voting process and determine final proposal status'
+  })
+  @ApiParam({ name: 'id', description: 'Proposal ID' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Proposal finalized',
+    type: Proposal 
+  })
+  @ApiResponse({ 
+    status: 400, 
+    description: 'Invalid proposal state for finalization' 
+  })
+  async finalizeProposal(
+    @Param('id') id: string,
+    @Req() request: any
+  ): Promise<Proposal> {
+    this.logger.log(`🏁 Finalizing proposal ${id}`);
+    
+    const agentId = request.user?.id || 'system';
+    const result = await this.proposalsService.finalizeProposal(id, agentId);
+    
+    this.logger.log(`✅ Proposal ${id} finalized with status: ${result.status}`);
+    return result as Proposal;
+  }
+
+  @Get(':id/can-advance/:phase')
+  @ApiOperation({ 
+    summary: 'Check if proposal can advance to phase',
+    description: 'Validate if a proposal meets conditions to advance to a specific phase'
+  })
+  @ApiParam({ name: 'id', description: 'Proposal ID' })
+  @ApiParam({ name: 'phase', description: 'Target governance phase' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Phase advancement validation result',
+    schema: {
+      type: 'object',
+      properties: {
+        canAdvance: { type: 'boolean' },
+        reasons: { type: 'array', items: { type: 'string' } }
+      }
+    }
+  })
+  async canAdvancePhase(
+    @Param('id') id: string,
+    @Param('phase') phase: string
+  ): Promise<{ canAdvance: boolean; reasons: string[] }> {
+    this.logger.debug(`Checking if proposal ${id} can advance to phase ${phase}`);
+    
+    const result = await this.proposalsService.canAdvancePhase(id, phase as any);
+    
+    this.logger.debug(`Phase advancement check: ${JSON.stringify(result)}`);
+    return result;
+  }
+
 }

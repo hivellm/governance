@@ -1,0 +1,164 @@
+<!-- Header Actions -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">Proposals</h1>
+        <p class="text-gray-400">Manage governance proposals and their lifecycle</p>
+    </div>
+    
+    <a href="/proposals/new" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+        <i data-feather="plus" class="w-4 h-4"></i>
+        <span>New Proposal</span>
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <select name="status" class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All Statuses</option>
+                <option value="draft" {{#if (eq filters.status 'draft')}}selected{{/if}}>Draft</option>
+                <option value="discussion" {{#if (eq filters.status 'discussion')}}selected{{/if}}>Discussion</option>
+                <option value="voting" {{#if (eq filters.status 'voting')}}selected{{/if}}>Voting</option>
+                <option value="approved" {{#if (eq filters.status 'approved')}}selected{{/if}}>Approved</option>
+                <option value="rejected" {{#if (eq filters.status 'rejected')}}selected{{/if}}>Rejected</option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Phase</label>
+            <select name="phase" class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All Phases</option>
+                <option value="proposal" {{#if (eq filters.phase 'proposal')}}selected{{/if}}>Proposal</option>
+                <option value="discussion" {{#if (eq filters.phase 'discussion')}}selected{{/if}}>Discussion</option>
+                <option value="revision" {{#if (eq filters.phase 'revision')}}selected{{/if}}>Revision</option>
+                <option value="voting" {{#if (eq filters.phase 'voting')}}selected{{/if}}>Voting</option>
+                <option value="execution" {{#if (eq filters.phase 'execution')}}selected{{/if}}>Execution</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="filter" class="w-4 h-4"></i>
+            <span>Filter</span>
+        </button>
+        
+        <a href="/proposals" class="inline-flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="x" class="w-4 h-4"></i>
+            <span>Clear</span>
+        </a>
+    </form>
+</div>
+
+<!-- Proposals List -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if proposals}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">Title</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Author</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Phase</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Status</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Created</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each proposals}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div>
+                            <a href="/proposals/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">{{title}}</a>
+                            <p class="text-sm text-gray-500 mt-1">{{id}}</p>
+                        </div>
+                    </td>
+                    <td class="p-4 text-gray-300">{{#if metadata.proposer_model}}{{metadata.proposer_model}}{{else}}{{authorId}}{{/if}}</td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq displayPhase 'execution')}}bg-indigo-900 text-indigo-300{{else if (eq displayPhase 'resolution')}}bg-purple-900 text-purple-300{{else if (eq displayPhase 'voting')}}bg-yellow-900 text-yellow-300{{else}}bg-blue-900 text-blue-300{{/if}}">
+                            {{capitalize displayPhase}}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq displayStatus 'approved')}}bg-green-900 text-green-300{{else if (eq displayStatus 'rejected')}}bg-red-900 text-red-300{{else if (eq displayStatus 'executed')}}bg-indigo-900 text-indigo-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                            {{capitalize displayStatus}}
+                        </span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">{{createdAt}}</td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/proposals/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            {{#if (eq displayStatus 'draft')}}
+                            <form method="POST" action="/proposals/{{id}}/advance/discussion" class="inline">
+                                <button type="submit" class="text-green-400 hover:text-green-300 text-sm" title="Advance to Discussion">
+                                    <i data-feather="arrow-right" class="w-4 h-4"></i>
+                                </button>
+                            </form>
+                            {{else if (eq displayStatus 'executed')}}
+                            <span class="text-indigo-400 text-sm" title="Implemented">
+                                <i data-feather="check-circle" class="w-4 h-4"></i>
+                            </span>
+                            {{else if (eq displayStatus 'approved')}}
+                            <span class="text-green-400 text-sm" title="Approved">
+                                <i data-feather="check" class="w-4 h-4"></i>
+                            </span>
+                            {{else if (eq displayStatus 'rejected')}}
+                            <span class="text-red-400 text-sm" title="Rejected">
+                                <i data-feather="x" class="w-4 h-4"></i>
+                            </span>
+                            {{/if}}
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {{#if pagination}}
+    <div class="p-4 border-t border-gray-800 flex justify-between items-center">
+        <div class="text-sm text-gray-400">
+            Showing {{proposals.length}} of {{totalCount}} proposals
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            {{#if pagination.hasPrev}}
+            <a href="?page={{subtract pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Previous
+            </a>
+            {{/if}}
+            
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">
+                {{pagination.current}}
+            </span>
+            
+            {{#if pagination.hasNext}}
+            <a href="?page={{add pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Next
+            </a>
+            {{/if}}
+        </div>
+    </div>
+    {{/if}}
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="inbox" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No proposals found</h3>
+        <p class="text-gray-500 mb-6">Get started by creating your first proposal</p>
+        <a href="/proposals/new" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <i data-feather="plus" class="w-5 h-5"></i>
+            <span>Create First Proposal</span>
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<script>
+    // Initialize icons
+    feather.replace();
+</script>

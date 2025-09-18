@@ -17,6 +17,7 @@ export enum AgentRole {
   MEDIATOR = 'mediator',
   VOTER = 'voter',
   EXECUTOR = 'executor',
+  VALIDATOR = 'validator',
   SUMMARIZER = 'summarizer',
 }
 
@@ -35,10 +36,13 @@ export interface AgentPermissions {
   canVote: boolean;
   canExecute: boolean;
   canMediate: boolean;
+  canModerate: boolean;
+  canValidate: boolean;
   canSummarize: boolean;
   maxProposalsPerDay?: number;
   maxDiscussionsPerDay?: number;
   maxVotesPerSession?: number;
+  customPermissions?: Record<string, boolean>;
 }
 
 export interface AgentPerformanceMetrics {

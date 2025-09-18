@@ -293,12 +293,12 @@ export class AgentsResolver {
   ): Promise<PermissionCheck> {
     this.logger.log(`GraphQL: Checking permission ${permission} for agent ${agentId}`);
     
-    const hasPermission = await this.agentsService.hasPermission(agentId, permission as any);
+    const permissionResult = await this.agentsService.hasPermission(agentId, 'check', permission);
     
     return {
       agentId,
       permission,
-      hasPermission,
+      hasPermission: permissionResult.allowed,
     };
   }
 

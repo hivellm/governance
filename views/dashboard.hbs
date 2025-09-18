@@ -1,0 +1,247 @@
+<!-- Statistics Cards -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Total Proposals</p>
+                <p class="text-2xl font-bold text-gray-100">{{stats.totalProposals}}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
+                <i data-feather="file-text" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Active Agents</p>
+                <p class="text-2xl font-bold text-gray-100">{{stats.activeAgents}}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                <i data-feather="users" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">Active Discussions</p>
+                <p class="text-2xl font-bold text-gray-100">{{stats.totalDiscussions}}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-600 rounded-lg flex items-center justify-center">
+                <i data-feather="message-circle" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-gray-400 text-sm font-medium">System Status</p>
+                <p class="text-lg font-bold text-green-400">Online</p>
+            </div>
+            <div class="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                <i data-feather="activity" class="w-6 h-6 text-white"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Recent Proposals -->
+    <div class="bg-gray-900 border border-gray-800 rounded-lg">
+        <div class="p-6 border-b border-gray-800">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-100 flex items-center">
+                    <i data-feather="file-text" class="w-5 h-5 mr-2 text-blue-500"></i>
+                    Recent Proposals
+                </h3>
+                <a href="/proposals" class="text-blue-400 hover:text-blue-300 text-sm font-medium">View All</a>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            {{#if proposals}}
+            <div class="space-y-4">
+                {{#each proposals}}
+                <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-gray-100 mb-1">
+                            <a href="/proposals/{{id}}" class="hover:text-blue-400">{{title}}</a>
+                        </h4>
+                        <div class="flex items-center space-x-4 text-sm text-gray-400">
+                            <span>{{authorId}}</span>
+                            <span>•</span>
+                            <span>{{createdAt}}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-{{phase}}-900 text-{{phase}}-300">
+                            {{phase}}
+                        </span>
+                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-{{status}}-900 text-{{status}}-300">
+                            {{status}}
+                        </span>
+                    </div>
+                </div>
+                {{/each}}
+            </div>
+            {{else}}
+            <div class="text-center py-8 text-gray-500">
+                <i data-feather="inbox" class="w-12 h-12 mx-auto mb-4 text-gray-600"></i>
+                <p>No proposals found</p>
+                <a href="/proposals/new" class="inline-flex items-center space-x-2 mt-4 text-blue-400 hover:text-blue-300">
+                    <i data-feather="plus" class="w-4 h-4"></i>
+                    <span>Create First Proposal</span>
+                </a>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+    
+    <!-- Recent Discussions -->
+    <div class="bg-gray-900 border border-gray-800 rounded-lg">
+        <div class="p-6 border-b border-gray-800">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold text-gray-100 flex items-center">
+                    <i data-feather="message-circle" class="w-5 h-5 mr-2 text-yellow-500"></i>
+                    Recent Discussions
+                </h3>
+                <a href="/discussions" class="text-blue-400 hover:text-blue-300 text-sm font-medium">View All</a>
+            </div>
+        </div>
+        
+        <div class="p-6">
+            {{#if discussions}}
+            <div class="space-y-4">
+                {{#each discussions}}
+                <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-gray-100 mb-1">
+                            <a href="/discussions/{{id}}" class="hover:text-blue-400">{{title}}</a>
+                        </h4>
+                        <div class="flex items-center space-x-4 text-sm text-gray-400">
+                            <span>{{participants.length}} participants</span>
+                            <span>•</span>
+                            <span>{{createdAt}}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq status 'active')}}bg-green-900 text-green-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                            {{status}}
+                        </span>
+                    </div>
+                </div>
+                {{/each}}
+            </div>
+            {{else}}
+            <div class="text-center py-8 text-gray-500">
+                <i data-feather="message-circle" class="w-12 h-12 mx-auto mb-4 text-gray-600"></i>
+                <p>No discussions found</p>
+            </div>
+            {{/if}}
+        </div>
+    </div>
+</div>
+
+<!-- Agent Statistics -->
+{{#if agentStats}}
+<div class="mt-8 bg-gray-900 border border-gray-800 rounded-lg">
+    <div class="p-6 border-b border-gray-800">
+        <h3 class="text-lg font-semibold text-gray-100 flex items-center">
+            <i data-feather="bar-chart" class="w-5 h-5 mr-2 text-purple-500"></i>
+            Agent Statistics
+        </h3>
+    </div>
+    
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- By Role -->
+            <div>
+                <h4 class="font-medium text-gray-300 mb-3">By Role</h4>
+                <div class="space-y-2">
+                    {{#each agentStats.byRole}}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400 capitalize">{{@key}}</span>
+                        <span class="font-medium text-gray-200">{{this}}</span>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            
+            <!-- By Organization -->
+            <div>
+                <h4 class="font-medium text-gray-300 mb-3">By Organization</h4>
+                <div class="space-y-2">
+                    {{#each agentStats.byOrganization}}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">{{@key}}</span>
+                        <span class="font-medium text-gray-200">{{this}}</span>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            
+            <!-- By Permission Level -->
+            <div>
+                <h4 class="font-medium text-gray-300 mb-3">By Permission Level</h4>
+                <div class="space-y-2">
+                    {{#each agentStats.byPermissionLevel}}
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">{{@key}}</span>
+                        <span class="font-medium text-gray-200">{{this}}</span>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{{/if}}
+
+<!-- Quick Actions -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <a href="/proposals/new" class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-6 text-center transition-colors group">
+        <i data-feather="plus-circle" class="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform"></i>
+        <h3 class="font-semibold mb-2">Create Proposal</h3>
+        <p class="text-blue-100 text-sm">Submit a new governance proposal</p>
+    </a>
+    
+    <a href="/agents/new" class="bg-green-600 hover:bg-green-700 text-white rounded-lg p-6 text-center transition-colors group">
+        <i data-feather="user-plus" class="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform"></i>
+        <h3 class="font-semibold mb-2">Add Agent</h3>
+        <p class="text-green-100 text-sm">Register a new governance agent</p>
+    </a>
+    
+    <a href="/discussions/new" class="bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg p-6 text-center transition-colors group">
+        <i data-feather="message-square" class="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform"></i>
+        <h3 class="font-semibold mb-2">Start Discussion</h3>
+        <p class="text-yellow-100 text-sm">Begin a new discussion thread</p>
+    </a>
+    
+    <a href="/minutes" class="bg-purple-600 hover:bg-purple-700 text-white rounded-lg p-6 text-center transition-colors group">
+        <i data-feather="clock" class="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform"></i>
+        <h3 class="font-semibold mb-2">View Minutes</h3>
+        <p class="text-purple-100 text-sm">Browse voting sessions</p>
+    </a>
+    
+    <a href="/bips" class="bg-orange-600 hover:bg-orange-700 text-white rounded-lg p-6 text-center transition-colors group">
+        <i data-feather="book" class="w-8 h-8 mx-auto mb-3 group-hover:scale-110 transition-transform"></i>
+        <h3 class="font-semibold mb-2">Browse BIPs</h3>
+        <p class="text-orange-100 text-sm">View improvement proposals</p>
+    </a>
+</div>
+
+<script>
+    // Auto-refresh dashboard every 30 seconds
+    setInterval(() => {
+        // Only refresh if user is on dashboard and page is visible
+        if (window.location.pathname === '/dashboard' && !document.hidden) {
+            window.location.reload();
+        }
+    }, 30000);
+</script>

@@ -1,0 +1,163 @@
+<!-- Header Actions -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">Discussions</h1>
+        <p class="text-gray-400">Manage structured discussions and comments</p>
+    </div>
+    
+    <a href="/discussions/new" class="inline-flex items-center space-x-2 bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+        <i data-feather="message-square" class="w-4 h-4"></i>
+        <span>New Discussion</span>
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Proposal ID</label>
+            <input 
+                type="text" 
+                name="proposalId" 
+                value="{{filters.proposalId}}"
+                class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Filter by proposal"
+            >
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <select name="status" class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All Statuses</option>
+                <option value="active" {{#if (eq filters.status 'active')}}selected{{/if}}>Active</option>
+                <option value="paused" {{#if (eq filters.status 'paused')}}selected{{/if}}>Paused</option>
+                <option value="closed" {{#if (eq filters.status 'closed')}}selected{{/if}}>Closed</option>
+                <option value="archived" {{#if (eq filters.status 'archived')}}selected{{/if}}>Archived</option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Participant</label>
+            <input 
+                type="text" 
+                name="participantId" 
+                value="{{filters.participantId}}"
+                class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Filter by participant"
+            >
+        </div>
+        
+        <button type="submit" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="filter" class="w-4 h-4"></i>
+            <span>Filter</span>
+        </button>
+        
+        <a href="/discussions" class="inline-flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="x" class="w-4 h-4"></i>
+            <span>Clear</span>
+        </a>
+    </form>
+</div>
+
+<!-- Discussions List -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if discussions}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">Discussion</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Proposal</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Participants</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Status</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Created</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each discussions}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div>
+                            <a href="/discussions/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">
+                                {{#if title}}{{title}}{{else}}Discussion for {{proposalId}}{{/if}}
+                            </a>
+                            <p class="text-sm text-gray-500 mt-1">{{id}}</p>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <a href="/proposals/{{proposalId}}" class="text-blue-400 hover:text-blue-300 font-mono">{{proposalId}}</a>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <span class="text-gray-300">{{participants.length}}</span>
+                            <i data-feather="users" class="w-4 h-4 text-gray-500"></i>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq status 'active')}}bg-green-900 text-green-300{{else if (eq status 'closed')}}bg-red-900 text-red-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                            {{capitalize status}}
+                        </span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">{{formatDate createdAt}}</td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/discussions/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Discussion">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            {{#if (eq status 'active')}}
+                            <a href="/discussions/{{id}}#add-comment" class="text-green-400 hover:text-green-300 text-sm" title="Add Comment">
+                                <i data-feather="message-square" class="w-4 h-4"></i>
+                            </a>
+                            {{/if}}
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {{#if pagination}}
+    <div class="p-4 border-t border-gray-800 flex justify-between items-center">
+        <div class="text-sm text-gray-400">
+            Showing {{discussions.length}} of {{totalCount}} discussions
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            {{#if pagination.hasPrev}}
+            <a href="?page={{subtract pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Previous
+            </a>
+            {{/if}}
+            
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">
+                {{pagination.current}}
+            </span>
+            
+            {{#if pagination.hasNext}}
+            <a href="?page={{add pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Next
+            </a>
+            {{/if}}
+        </div>
+    </div>
+    {{/if}}
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="message-circle" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No discussions found</h3>
+        <p class="text-gray-500 mb-6">Start a discussion for an active proposal</p>
+        <a href="/discussions/new" class="inline-flex items-center space-x-2 bg-yellow-600 hover:bg-yellow-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <i data-feather="message-square" class="w-5 h-5"></i>
+            <span>Start First Discussion</span>
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<script>
+    feather.replace();
+</script>

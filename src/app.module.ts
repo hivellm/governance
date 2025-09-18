@@ -18,6 +18,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { BipsModule } from './modules/bips/bips.module';
 import { MinutesModule } from './modules/minutes/minutes.module';
 import { TeamsModule } from './modules/teams/teams.module';
+import { WebModule } from './modules/web/web.module';
 
 @Module({
   imports: [
@@ -51,6 +52,7 @@ import { TeamsModule } from './modules/teams/teams.module';
     BipsModule,
     MinutesModule,
     TeamsModule,
+    WebModule,
   ],
 })
 export class AppModule {}

@@ -1,0 +1,44 @@
+<div class="text-center py-20">
+    <div class="max-w-2xl mx-auto">
+        <!-- Error Icon -->
+        <div class="inline-flex items-center justify-center w-20 h-20 bg-red-600 rounded-full mb-6">
+            <i data-feather="alert-triangle" class="w-10 h-10 text-white"></i>
+        </div>
+        
+        <h1 class="text-4xl font-bold text-gray-100 mb-4">System Error</h1>
+        
+        <p class="text-lg text-gray-400 mb-8">
+            An error occurred while processing your request
+        </p>
+        
+        <!-- Error Details -->
+        <div class="bg-red-900/20 border border-red-800 rounded-lg p-6 mb-8 text-left">
+            <h2 class="text-lg font-semibold text-red-300 mb-4">Error Details</h2>
+            <div class="bg-gray-950 border border-gray-800 rounded p-4">
+                <code class="text-red-300 text-sm">{{message}}</code>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="flex justify-center space-x-4">
+            <button onclick="history.back()" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-300 px-6 py-3 rounded-lg transition-colors">
+                <i data-feather="arrow-left" class="w-5 h-5"></i>
+                <span>Go Back</span>
+            </button>
+            
+            <a href="/dashboard" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+                <i data-feather="home" class="w-5 h-5"></i>
+                <span>Dashboard</span>
+            </a>
+            
+            <button onclick="window.location.reload()" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors">
+                <i data-feather="refresh-cw" class="w-5 h-5"></i>
+                <span>Retry</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    feather.replace();
+</script>

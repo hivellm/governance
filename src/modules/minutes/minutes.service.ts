@@ -126,7 +126,7 @@ export class MinutesService {
 
   async listSessionVotes(sessionId: string): Promise<SessionVoteRecord[]> {
     const db = this.databaseService.getDatabase();
-    const rows = db.prepare('SELECT * FROM session_votes WHERE session_id = ? ORDER BY cast_at ASC').all(sessionId);
+    const rows = db.prepare('SELECT * FROM session_votes WHERE session_id = ? ORDER BY created_at ASC').all(sessionId);
     return rows.map((r: any) => ({
       id: r.id,
       sessionId: r.session_id,
@@ -135,7 +135,7 @@ export class MinutesService {
       decision: r.decision,
       comment: r.comment,
       proposalRef: r.proposal_ref,
-      castAt: r.cast_at ? new Date(r.cast_at) : undefined,
+      castAt: r.created_at ? new Date(r.created_at) : undefined,
     }));
   }
 

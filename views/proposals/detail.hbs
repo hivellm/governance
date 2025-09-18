@@ -1,0 +1,379 @@
+<!-- Header -->
+<div class="flex justify-between items-start mb-6">
+    <div class="flex-1">
+        <div class="flex items-center space-x-4 mb-2">
+            <h1 class="text-2xl font-bold text-gray-100">{{proposal.title}}</h1>
+            <span class="px-3 py-1 text-sm font-medium rounded-full {{#if (eq proposal.displayPhase 'execution')}}bg-indigo-900 text-indigo-300{{else if (eq proposal.displayPhase 'resolution')}}bg-purple-900 text-purple-300{{else}}bg-blue-900 text-blue-300{{/if}}">
+                {{capitalize proposal.displayPhase}}
+            </span>
+            <span class="px-3 py-1 text-sm font-medium rounded-full {{#if (eq proposal.displayStatus 'approved')}}bg-green-900 text-green-300{{else if (eq proposal.displayStatus 'rejected')}}bg-red-900 text-red-300{{else if (eq proposal.displayStatus 'executed')}}bg-indigo-900 text-indigo-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                {{capitalize proposal.displayStatus}}
+            </span>
+        </div>
+        
+        <div class="flex items-center space-x-6 text-sm text-gray-400">
+            <span class="flex items-center space-x-1">
+                <i data-feather="user" class="w-4 h-4"></i>
+                <span>{{#if proposal.metadata.proposer_model}}{{proposal.metadata.proposer_model}}{{else}}{{proposal.authorId}}{{/if}}</span>
+            </span>
+            <span class="flex items-center space-x-1">
+                <i data-feather="calendar" class="w-4 h-4"></i>
+                <span>{{formatDate proposal.createdAt}}</span>
+            </span>
+            <span class="flex items-center space-x-1">
+                <i data-feather="tag" class="w-4 h-4"></i>
+                <span class="capitalize">{{proposal.type}}</span>
+            </span>
+        </div>
+    </div>
+    
+    <!-- Actions -->
+    <div class="flex items-center space-x-3">
+        {{#if canAdvanceToDiscussion}}
+        <form method="POST" action="/proposals/{{proposal.id}}/advance/discussion" class="inline">
+            <button type="submit" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <i data-feather="arrow-right" class="w-4 h-4"></i>
+                <span>Start Discussion</span>
+            </button>
+        </form>
+        {{/if}}
+        
+        {{#if canAdvanceToVoting}}
+        <form method="POST" action="/proposals/{{proposal.id}}/advance/voting" class="inline">
+            <button type="submit" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <i data-feather="check-square" class="w-4 h-4"></i>
+                <span>Start Voting</span>
+            </button>
+        </form>
+        {{/if}}
+        
+        {{#if canFinalize}}
+        <form method="POST" action="/proposals/{{proposal.id}}/advance/finalize" class="inline">
+            <button type="submit" class="inline-flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                <i data-feather="check-circle" class="w-4 h-4"></i>
+                <span>Finalize</span>
+            </button>
+        </form>
+        {{/if}}
+        
+        <a href="/proposals" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-300 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="arrow-left" class="w-4 h-4"></i>
+            <span>Back to List</span>
+        </a>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Main Content -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Proposal Content -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+                    <i data-feather="file-text" class="w-5 h-5 mr-2 text-blue-500"></i>
+                    Proposal Content
+                </h2>
+            </div>
+            
+            <div class="p-6">
+                <div class="prose prose-invert max-w-none">
+                    <div class="whitespace-pre-wrap text-gray-300 leading-relaxed">{{safeContent proposal.content}}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Discussions -->
+        {{#if discussions}}
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+                        <i data-feather="message-circle" class="w-5 h-5 mr-2 text-yellow-500"></i>
+                        Discussions ({{discussions.length}})
+                    </h2>
+                    
+                    {{#if (eq proposal.phase 'discussion')}}
+                    <a href="/discussions/new?proposalId={{proposal.id}}" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                        Start New Discussion
+                    </a>
+                    {{/if}}
+                </div>
+            </div>
+            
+            <div class="p-6">
+                <div class="space-y-4">
+                    {{#each discussions}}
+                    <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg hover:bg-gray-750 transition-colors">
+                        <div class="flex-1">
+                            <h4 class="font-medium text-gray-100 mb-1">
+                                <a href="/discussions/{{id}}" class="hover:text-blue-400">{{title}}</a>
+                            </h4>
+                            <div class="flex items-center space-x-4 text-sm text-gray-400">
+                                <span>{{participants.length}} participants</span>
+                                <span>•</span>
+                                <span>{{formatDate createdAt}}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq status 'active')}}bg-green-900 text-green-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                                {{status}}
+                            </span>
+                            <a href="/discussions/{{id}}" class="text-blue-400 hover:text-blue-300">
+                                <i data-feather="arrow-right" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+        </div>
+        {{/if}}
+        
+        <!-- Voting Results -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+                    <i data-feather="bar-chart" class="w-5 h-5 mr-2 text-purple-500"></i>
+                    Voting Results
+                </h2>
+            </div>
+            
+            <div class="p-6">
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="text-center p-4 bg-green-900/20 border border-green-800 rounded-lg">
+                        <div class="text-2xl font-bold text-green-400">
+                            {{#if hasMinutesVotes}}
+                                {{minutesVotingResult.approveCount}}
+                            {{else if votingResult.approveVotes}}
+                                {{votingResult.approveVotes}}
+                            {{else}}
+                                0
+                            {{/if}}
+                        </div>
+                        <div class="text-sm text-green-300">Approve</div>
+                    </div>
+                    
+                    <div class="text-center p-4 bg-red-900/20 border border-red-800 rounded-lg">
+                        <div class="text-2xl font-bold text-red-400">
+                            {{#if hasMinutesVotes}}
+                                {{minutesVotingResult.rejectCount}}
+                            {{else if votingResult.rejectVotes}}
+                                {{votingResult.rejectVotes}}
+                            {{else}}
+                                0
+                            {{/if}}
+                        </div>
+                        <div class="text-sm text-red-300">Reject</div>
+                    </div>
+                    
+                    <div class="text-center p-4 bg-gray-800 border border-gray-700 rounded-lg">
+                        <div class="text-2xl font-bold text-gray-400">
+                            {{#if hasMinutesVotes}}
+                                {{minutesVotingResult.abstainCount}}
+                            {{else if votingResult.abstainVotes}}
+                                {{votingResult.abstainVotes}}
+                            {{else}}
+                                0
+                            {{/if}}
+                        </div>
+                        <div class="text-sm text-gray-300">Abstain</div>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    {{#if hasMinutesVotes}}
+                    <!-- Results from Minutes Sessions -->
+                    <div class="mb-4 p-3 bg-blue-900/20 border border-blue-800 rounded-lg">
+                        <div class="text-sm text-blue-300 mb-1">
+                            <i data-feather="clock" class="w-4 h-4 inline mr-1"></i>
+                            Historical Voting Results (from Minutes)
+                        </div>
+                    </div>
+                    
+                    <div class="text-lg font-medium text-gray-100 mb-2">
+                        Final Result: 
+                        <span class="{{#if (eq minutesVotingResult.result 'approved')}}text-green-400{{else if (eq minutesVotingResult.result 'rejected')}}text-red-400{{else}}text-yellow-400{{/if}}">
+                            {{capitalize minutesVotingResult.result}}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-400 mb-2">
+                        Consensus Score: {{minutesVotingResult.consensusPercentage}}%
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        Total Votes: {{minutesVotingResult.totalVotes}} | 
+                        Quorum: {{#if minutesVotingResult.quorumMet}}✓ Met{{else}}✗ Not Met{{/if}}
+                    </div>
+                    
+                    {{else if (gt votingResult.totalVotes 0)}}
+                    <!-- Regular Voting Results -->
+                    <div class="text-lg font-medium text-gray-100 mb-2">
+                        Final Result: 
+                        <span class="{{#if (eq votingResult.result 'approved')}}text-green-400{{else if (eq votingResult.result 'rejected')}}text-red-400{{else}}text-yellow-400{{/if}}">
+                            {{capitalize votingResult.result}}
+                        </span>
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        Consensus Score: {{votingResult.consensusPercentage}}%
+                    </div>
+                    
+                    {{else}}
+                    <!-- No Voting Yet -->
+                    <div class="text-lg font-medium text-yellow-400 mb-2">
+                        Voting in Progress
+                    </div>
+                    <div class="text-sm text-gray-400">
+                        No votes cast yet - {{#if proposal.phase}}Phase: {{proposal.phase}}{{/if}}
+                    </div>
+                    {{#if (eq proposal.phase 'discussion')}}
+                    <div class="mt-4">
+                        <form method="POST" action="/proposals/{{proposal.id}}/advance/voting" class="inline">
+                            <button type="submit" class="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+                                <i data-feather="check-square" class="w-4 h-4"></i>
+                                <span>Start Voting Phase</span>
+                            </button>
+                        </form>
+                    </div>
+                    {{/if}}
+                    {{/if}}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Info -->
+    <div class="space-y-6">
+        <!-- Proposal Info -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Proposal Details</h3>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="text-sm font-medium text-gray-400">ID</label>
+                    <p class="text-gray-200 font-mono text-sm">{{proposal.id}}</p>
+                </div>
+                
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Type</label>
+                    <p class="text-gray-200 capitalize">{{proposal.type}}</p>
+                </div>
+                
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Created</label>
+                    <p class="text-gray-200">{{formatDate proposal.createdAt}}</p>
+                </div>
+                
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Last Updated</label>
+                    <p class="text-gray-200">{{formatDate proposal.updatedAt}}</p>
+                </div>
+                
+                {{#if proposal.votingDeadline}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Deadline</label>
+                    <p class="text-gray-200">{{formatDate proposal.votingDeadline}}</p>
+                </div>
+                {{/if}}
+            </div>
+        </div>
+        
+        <!-- Metadata -->
+        {{#if proposal.metadata}}
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Metadata</h3>
+            </div>
+            
+            <div class="p-6 space-y-4">
+                {{#if proposal.metadata.proposer_model}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Proposer Model</label>
+                    <p class="text-gray-200">{{proposal.metadata.proposer_model}}</p>
+                </div>
+                {{/if}}
+                
+                {{#if proposal.metadata.proposer_provider}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Provider</label>
+                    <p class="text-gray-200">{{proposal.metadata.proposer_provider}}</p>
+                </div>
+                {{/if}}
+                
+                {{#if proposal.metadata.estimatedEffort}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Estimated Effort</label>
+                    <p class="text-gray-200 capitalize">{{proposal.metadata.estimatedEffort}}</p>
+                </div>
+                {{/if}}
+                
+                {{#if proposal.metadata.category}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Categories</label>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        {{#each proposal.metadata.category}}
+                        <span class="px-2 py-1 text-xs bg-blue-900 text-blue-300 rounded">{{this}}</span>
+                        {{/each}}
+                    </div>
+                </div>
+                {{/if}}
+                
+                {{#if proposal.metadata.tags}}
+                <div>
+                    <label class="text-sm font-medium text-gray-400">Tags</label>
+                    <div class="flex flex-wrap gap-1 mt-1">
+                        {{#each proposal.metadata.tags}}
+                        <span class="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded">{{this}}</span>
+                        {{/each}}
+                    </div>
+                </div>
+                {{/if}}
+                
+                <!-- Raw JSON for debugging -->
+                <details class="mt-4">
+                    <summary class="text-sm text-gray-500 cursor-pointer hover:text-gray-400">Show Raw Metadata</summary>
+                    <pre class="text-xs text-gray-400 bg-gray-950 p-3 rounded border border-gray-800 overflow-x-auto mt-2">{{json proposal.metadata}}</pre>
+                </details>
+            </div>
+        </div>
+        {{/if}}
+        
+        <!-- Quick Actions -->
+        <div class="bg-gray-900 border border-gray-800 rounded-lg">
+            <div class="p-6 border-b border-gray-800">
+                <h3 class="font-semibold text-gray-100">Quick Actions</h3>
+            </div>
+            
+            <div class="p-6 space-y-3">
+                <a href="/discussions?proposalId={{proposal.id}}" class="flex items-center space-x-2 text-yellow-400 hover:text-yellow-300 text-sm">
+                    <i data-feather="message-circle" class="w-4 h-4"></i>
+                    <span>View Discussions</span>
+                </a>
+                
+                <a href="/voting?proposalId={{proposal.id}}" class="flex items-center space-x-2 text-purple-400 hover:text-purple-300 text-sm">
+                    <i data-feather="check-square" class="w-4 h-4"></i>
+                    <span>View Voting</span>
+                </a>
+                
+                <a href="/api/proposals/{{proposal.id}}" target="_blank" class="flex items-center space-x-2 text-blue-400 hover:text-blue-300 text-sm">
+                    <i data-feather="code" class="w-4 h-4"></i>
+                    <span>API Data</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    feather.replace();
+    
+    // Auto-refresh if in voting phase
+    {{#if (eq proposal.phase 'voting')}}
+    setInterval(() => {
+        if (!document.hidden) {
+            window.location.reload();
+        }
+    }, 10000); // Refresh every 10 seconds during voting
+    {{/if}}
+</script>

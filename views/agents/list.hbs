@@ -1,0 +1,210 @@
+<!-- Header Actions -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">Agents</h1>
+        <p class="text-gray-400">Manage governance agents and their roles</p>
+    </div>
+    
+    <a href="/agents/new" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+        <i data-feather="user-plus" class="w-4 h-4"></i>
+        <span>New Agent</span>
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg p-4 mb-6">
+    <form method="GET" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Role</label>
+            <select name="roles" class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All Roles</option>
+                <option value="proposer" {{#if (eq filters.roles 'proposer')}}selected{{/if}}>Proposer</option>
+                <option value="voter" {{#if (eq filters.roles 'voter')}}selected{{/if}}>Voter</option>
+                <option value="reviewer" {{#if (eq filters.roles 'reviewer')}}selected{{/if}}>Reviewer</option>
+                <option value="mediator" {{#if (eq filters.roles 'mediator')}}selected{{/if}}>Mediator</option>
+                <option value="executor" {{#if (eq filters.roles 'executor')}}selected{{/if}}>Executor</option>
+                <option value="validator" {{#if (eq filters.roles 'validator')}}selected{{/if}}>Validator</option>
+                <option value="summarizer" {{#if (eq filters.roles 'summarizer')}}selected{{/if}}>Summarizer</option>
+            </select>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Organization</label>
+            <input 
+                type="text" 
+                name="organization" 
+                value="{{filters.organization}}"
+                class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Filter by organization"
+            >
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-300 mb-1">Status</label>
+            <select name="isActive" class="bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                <option value="">All</option>
+                <option value="true" {{#if (eq filters.isActive 'true')}}selected{{/if}}>Active</option>
+                <option value="false" {{#if (eq filters.isActive 'false')}}selected{{/if}}>Inactive</option>
+            </select>
+        </div>
+        
+        <button type="submit" class="inline-flex items-center space-x-2 bg-gray-700 hover:bg-gray-600 text-gray-200 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="filter" class="w-4 h-4"></i>
+            <span>Filter</span>
+        </button>
+        
+        <a href="/agents" class="inline-flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-gray-300 px-4 py-2 rounded-lg transition-colors">
+            <i data-feather="x" class="w-4 h-4"></i>
+            <span>Clear</span>
+        </a>
+    </form>
+</div>
+
+<!-- Agents List -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if agents}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">Agent</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Organization</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Roles</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Permission Level</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Status</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Last Active</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each agents}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <span class="text-white font-medium text-sm">{{substring name 0 2}}</span>
+                            </div>
+                            <div>
+                                <a href="/agents/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">{{name}}</a>
+                                <p class="text-sm text-gray-500">{{id}}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4 text-gray-300">{{organization}}</td>
+                    <td class="p-4">
+                        <div class="flex flex-wrap gap-1">
+                            {{#each roles}}
+                            <span class="px-2 py-1 text-xs font-medium rounded bg-blue-900 text-blue-300">
+                                {{this}}
+                            </span>
+                            {{/each}}
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (gt permissions.level 3)}}bg-red-900 text-red-300{{else if (gt permissions.level 2)}}bg-yellow-900 text-yellow-300{{else}}bg-green-900 text-green-300{{/if}}">
+                            Level {{permissions.level}}
+                        </span>
+                    </td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 rounded-full {{#if isActive}}bg-green-500{{else}}bg-red-500{{/if}}"></div>
+                            <span class="text-sm {{#if isActive}}text-green-400{{else}}text-red-400{{/if}}">
+                                {{#if isActive}}Active{{else}}Inactive{{/if}}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">{{formatDate lastActive}}</td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/agents/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Details">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            <a href="/agents/{{id}}/permissions" class="text-purple-400 hover:text-purple-300 text-sm" title="View Permissions">
+                                <i data-feather="shield" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Pagination -->
+    {{#if pagination}}
+    <div class="p-4 border-t border-gray-800 flex justify-between items-center">
+        <div class="text-sm text-gray-400">
+            Showing {{agents.length}} of {{totalCount}} agents
+        </div>
+        
+        <div class="flex items-center space-x-2">
+            {{#if pagination.hasPrev}}
+            <a href="?page={{subtract pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Previous
+            </a>
+            {{/if}}
+            
+            <span class="px-3 py-1 bg-blue-600 text-white rounded">
+                {{pagination.current}}
+            </span>
+            
+            {{#if pagination.hasNext}}
+            <a href="?page={{add pagination.current 1}}" class="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded border border-gray-700 transition-colors">
+                Next
+            </a>
+            {{/if}}
+        </div>
+    </div>
+    {{/if}}
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="users" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No agents found</h3>
+        <p class="text-gray-500 mb-6">Get started by registering your first agent</p>
+        <a href="/agents/new" class="inline-flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <i data-feather="user-plus" class="w-5 h-5"></i>
+            <span>Register First Agent</span>
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<!-- Available Roles Info -->
+{{#if availableRoles}}
+<div class="mt-8 bg-gray-900 border border-gray-800 rounded-lg">
+    <div class="p-6 border-b border-gray-800">
+        <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+            <i data-feather="info" class="w-5 h-5 mr-2 text-blue-500"></i>
+            Available Roles
+        </h2>
+    </div>
+    
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{#each availableRoles}}
+            <div class="bg-gray-800 border border-gray-700 rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="font-medium text-gray-100 capitalize">{{role}}</h3>
+                    <span class="px-2 py-1 text-xs font-medium rounded bg-blue-900 text-blue-300">
+                        Level {{level}}
+                    </span>
+                </div>
+                <div class="text-sm text-gray-400">
+                    {{permissions.length}} permissions
+                </div>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+</div>
+{{/if}}
+
+<script>
+    feather.replace();
+    
+    // Helper for substring
+    Handlebars.registerHelper('substring', function(str, start, end) {
+        return str ? str.substring(start, end).toUpperCase() : '';
+    });
+</script>

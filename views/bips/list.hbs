@@ -1,0 +1,117 @@
+<!-- Header -->
+<div class="flex justify-between items-center mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-100">BIPs</h1>
+        <p class="text-gray-400">Bitcoin Improvement Proposals - Governance Standards</p>
+    </div>
+    
+    <div class="flex items-center space-x-2 text-sm text-gray-400">
+        <i data-feather="book" class="w-4 h-4"></i>
+        <span>{{totalCount}} BIPs available</span>
+    </div>
+</div>
+
+<!-- BIPs List -->
+<div class="bg-gray-900 border border-gray-800 rounded-lg">
+    {{#if bips}}
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead>
+                <tr class="border-b border-gray-800">
+                    <th class="text-left p-4 font-medium text-gray-300">BIP</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Title</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Status</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Created</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Updated</th>
+                    <th class="text-left p-4 font-medium text-gray-300">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each bips}}
+                <tr class="border-b border-gray-800 hover:bg-gray-800/50 transition-colors">
+                    <td class="p-4">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center">
+                                <span class="text-white font-bold text-xs">{{substring id 4 6}}</span>
+                            </div>
+                            <div>
+                                <a href="/bips/{{id}}" class="font-medium text-gray-100 hover:text-blue-400">{{id}}</a>
+                                <p class="text-sm text-gray-500">BIP {{substring id 4 6}}</p>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-4">
+                        <a href="/bips/{{id}}" class="text-gray-200 hover:text-blue-400">{{title}}</a>
+                    </td>
+                    <td class="p-4">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full {{#if (eq status 'active')}}bg-green-900 text-green-300{{else if (eq status 'draft')}}bg-yellow-900 text-yellow-300{{else if (eq status 'final')}}bg-blue-900 text-blue-300{{else}}bg-gray-800 text-gray-300{{/if}}">
+                            {{capitalize status}}
+                        </span>
+                    </td>
+                    <td class="p-4 text-gray-400 text-sm">{{formatDate createdAt}}</td>
+                    <td class="p-4 text-gray-400 text-sm">{{formatDate updatedAt}}</td>
+                    <td class="p-4">
+                        <div class="flex items-center space-x-2">
+                            <a href="/bips/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View BIP">
+                                <i data-feather="eye" class="w-4 h-4"></i>
+                            </a>
+                            <a href="/api/bips/{{id}}" target="_blank" class="text-green-400 hover:text-green-300 text-sm" title="API Data">
+                                <i data-feather="code" class="w-4 h-4"></i>
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+    
+    {{else}}
+    <div class="text-center py-12 text-gray-500">
+        <i data-feather="book" class="w-16 h-16 mx-auto mb-4 text-gray-600"></i>
+        <h3 class="text-lg font-medium text-gray-400 mb-2">No BIPs found</h3>
+        <p class="text-gray-500 mb-6">BIPs are formal improvement proposals for the system</p>
+        <a href="/proposals" class="inline-flex items-center space-x-2 bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
+            <i data-feather="file-text" class="w-5 h-5"></i>
+            <span>View Proposals</span>
+        </a>
+    </div>
+    {{/if}}
+</div>
+
+<!-- BIP Information -->
+<div class="mt-8 bg-gray-900 border border-gray-800 rounded-lg">
+    <div class="p-6 border-b border-gray-800">
+        <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+            <i data-feather="info" class="w-5 h-5 mr-2 text-blue-500"></i>
+            About BIPs
+        </h2>
+    </div>
+    
+    <div class="p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="font-medium text-gray-300 mb-3">BIP Process</h3>
+                <div class="space-y-2 text-sm text-gray-400">
+                    <p>• <strong class="text-gray-300">Draft</strong> - Initial proposal submission</p>
+                    <p>• <strong class="text-gray-300">Active</strong> - Under review and discussion</p>
+                    <p>• <strong class="text-gray-300">Final</strong> - Approved and implemented</p>
+                    <p>• <strong class="text-gray-300">Withdrawn</strong> - Proposal withdrawn</p>
+                </div>
+            </div>
+            
+            <div>
+                <h3 class="font-medium text-gray-300 mb-3">BIP Types</h3>
+                <div class="space-y-2 text-sm text-gray-400">
+                    <p>• <strong class="text-gray-300">Standards Track</strong> - Core protocol changes</p>
+                    <p>• <strong class="text-gray-300">Informational</strong> - Design guidelines</p>
+                    <p>• <strong class="text-gray-300">Process</strong> - Governance procedures</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    feather.replace();
+</script>
