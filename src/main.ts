@@ -68,6 +68,7 @@ async function bootstrap() {
   console.log(`📊 API Server: http://localhost:${port}`);
   console.log(`🌐 Web Interface: http://localhost:${port}/dashboard`);
   console.log(`📋 Swagger Docs: http://localhost:${port}/api`);
+  console.log(`🔧 MCP Server: http://localhost:${port}/mcp (SSE)`);
   // console.log(`📈 GraphQL Playground: http://localhost:${port}/graphql`);
   console.log(`📁 Database: governance.db (SQLite)`);
   console.log(`🎯 BIP-06 Implementation - Phase 2: Discussion Framework\n`);

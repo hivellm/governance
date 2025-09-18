@@ -374,6 +374,51 @@ export class GovernanceTool {
   }
 
   @Tool({
+    name: 'add-discussion-comment',
+    description: 'Add a comment to an existing discussion',
+    parameters: z.object({
+      discussionId: z.string().describe('The discussion ID to add comment to'),
+      content: z.string().describe('The comment content'),
+      type: z.enum(['comment', 'support', 'objection', 'suggestion']).default('comment').describe('The comment type'),
+    }),
+  })
+  async addDiscussionComment(params: { discussionId: string; content: string; type?: string }, context: Context) {
+    await context.reportProgress({ progress: 25, total: 100 });
+
+    try {
+      // Find the discussion first to validate it exists
+      const discussion = await this.discussionsService.getDiscussion(params.discussionId);
+
+      if (!discussion) {
+        throw new Error(`Discussion ${params.discussionId} not found`);
+      }
+
+      await context.reportProgress({ progress: 50, total: 100 });
+
+      // Create the comment using the discussions service with proper CreateCommentRequest format
+      const comment = await this.discussionsService.addComment({
+        discussionId: params.discussionId,
+        authorId: 'mcp-system', // Default author for MCP comments
+        type: params.type as any || 'comment',
+        content: params.content
+      });
+
+      await context.reportProgress({ progress: 100, total: 100 });
+
+      return {
+        commentId: comment.id,
+        discussionId: params.discussionId,
+        type: params.type || 'comment',
+        createdAt: comment.createdAt,
+        message: '✅ Comment added successfully via MCP!',
+        summary: `Added ${params.type || 'comment'} to discussion ${params.discussionId}`
+      };
+    } catch (error) {
+      throw new Error(`Failed to add comment: ${error.message}`);
+    }
+  }
+
+  @Tool({
     name: 'finalize-discussion',
     description: 'Manually finalize a discussion',
     parameters: z.object({

@@ -24,9 +24,14 @@ import {
 import { ProposalsService } from './proposals.service';
 import { CreateProposalDto, UpdateProposalDto, ListProposalsDto } from './dto';
 import { Proposal, ProposalListResponse } from './entities/proposal.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { IAgent } from '../agents/interfaces/agent.interface';
 
 @ApiTags('proposals')
 @Controller('api/proposals')
+@UseGuards(JwtAuthGuard)
 @ApiBearerAuth()
 export class ProposalsController {
   private readonly logger = new Logger(ProposalsController.name);
@@ -54,18 +59,16 @@ export class ProposalsController {
   })
   async createProposal(
     @Body() createProposalDto: CreateProposalDto,
-    @Req() request: any // TODO: Replace with proper auth guard
+    @CurrentUser() currentUser: IAgent
   ): Promise<Proposal> {
-    this.logger.log(`Creating proposal: "${createProposalDto.title}"`);
+    this.logger.log(`Creating proposal: "${createProposalDto.title}" by agent: ${currentUser.id}`);
     
-    // TODO: Extract agent ID from JWT token via auth guard
-    const authorId = request.user?.id || 'temp-agent-id';
-    
-    const proposal = await this.proposalsService.createProposal(authorId, createProposalDto);
+    const proposal = await this.proposalsService.createProposal(currentUser.id, createProposalDto);
     return proposal as Proposal;
   }
 
   @Get()
+  @Public()
   @ApiOperation({ 
     summary: 'List proposals with filtering and pagination',
     description: 'Retrieves a paginated list of proposals with optional filtering by status, phase, type, author, date range, and full-text search.'
@@ -142,6 +145,7 @@ export class ProposalsController {
   }
 
   @Get(':id')
+  @Public()
   @ApiOperation({ 
     summary: 'Get proposal by ID',
     description: 'Retrieves a specific proposal by its unique identifier including all content, metadata, and current status.'

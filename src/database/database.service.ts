@@ -243,6 +243,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `,
       getProposal: 'SELECT * FROM proposals WHERE id = ?',
+      countProposals: 'SELECT COUNT(*) as count FROM proposals',
+      getMaxProposalId: `SELECT id as max_id FROM proposals WHERE id LIKE 'P%' AND id GLOB 'P[0-9][0-9][0-9]' ORDER BY CAST(SUBSTR(id, 2) AS INTEGER) DESC LIMIT 1`,
       updateProposalStatus: 'UPDATE proposals SET status = ?, phase = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       listProposals: 'SELECT * FROM proposals ORDER BY created_at DESC LIMIT ? OFFSET ?',
 

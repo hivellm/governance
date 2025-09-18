@@ -20,6 +20,7 @@ import { MinutesModule } from './modules/minutes/minutes.module';
 import { TeamsModule } from './modules/teams/teams.module';
 import { WebModule } from './modules/web/web.module';
 import { McpModule } from './modules/mcp/mcp.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { McpModule } from './modules/mcp/mcp.module';
     // }),
 
     // Feature modules
+    AuthModule,
     GovernanceModule,
     ProposalsModule,
     DiscussionsModule,

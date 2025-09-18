@@ -92,6 +92,11 @@ export const handlebarsHelpers = {
     return String(content);
   },
 
+  urlEncode: (str: string) => {
+    if (!str) return '';
+    return encodeURIComponent(str);
+  },
+
   getModelIcon: (modelId: string) => {
     const iconMap: Record<string, string> = {
       // Cursor-agent models

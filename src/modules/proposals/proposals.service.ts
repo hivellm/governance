@@ -20,26 +20,51 @@ export class ProposalsService {
   constructor(private readonly databaseService: DatabaseService) {}
 
   /**
+   * Generate next sequential proposal ID in format P001, P002, etc.
+   */
+  private async generateNextProposalId(): Promise<string> {
+    try {
+      // Get the highest existing P### ID
+      const maxIdStatement = this.databaseService.getStatement('getMaxProposalId');
+      const result = maxIdStatement.get() as { max_id: string | null };
+      
+      let nextNumber = 1;
+      if (result?.max_id) {
+        // Extract number from P### format
+        const match = result.max_id.match(/^P(\d+)$/);
+        if (match) {
+          nextNumber = parseInt(match[1], 10) + 1;
+        }
+      }
+      
+      return `P${nextNumber.toString().padStart(3, '0')}`;
+    } catch (error) {
+      this.logger.warn(`Failed to generate sequential ID, using fallback: ${error.message}`);
+      // Fallback to timestamp-based ID
+      const timestamp = Date.now();
+      return `P${timestamp.toString().slice(-3)}`;
+    }
+  }
+
+  /**
    * Create a new proposal
    */
   async createProposal(authorId: string, createProposalDto: CreateProposalDto): Promise<IProposal> {
     this.logger.debug(`Creating new proposal by agent: ${authorId}`);
 
-    // Use provided ID when available to avoid duplicates; fallback to UUID
+    // Use provided ID when available to avoid duplicates; fallback to sequential ID
     const providedId = (createProposalDto as any).id as string | undefined;
-    const proposalId = providedId && providedId.trim().length > 0 ? providedId.trim() : uuidv4();
+    const proposalId = providedId && providedId.trim().length > 0 ? providedId.trim() : await this.generateNextProposalId();
 
-    // If a proposal with the same ID already exists, return it (idempotent create)
-    if (providedId) {
-      try {
-        const existing = await this.findById(providedId);
-        if (existing) {
-          this.logger.log(`⚠️ Proposal already exists with id ${providedId}. Returning existing.`);
-          return existing;
-        }
-      } catch (_) {
-        // not found -> proceed to create
+    // Check if a proposal with the same ID already exists
+    try {
+      const existing = await this.findById(proposalId);
+      if (existing) {
+        this.logger.log(`⚠️ Proposal already exists with id ${proposalId}. Returning existing.`);
+        return existing;
       }
+    } catch (_) {
+      // not found -> proceed to create
     }
 
     const proposal: IProposal = {

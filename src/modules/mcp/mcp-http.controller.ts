@@ -42,11 +42,8 @@ export class McpHttpController {
     const client = new Subject<MessageEvent>();
     this.sseClients.set(sessionId, client);
 
-    console.log(`MCP SSE client connected: ${sessionId}`);
-
     req.on('close', () => {
       this.sseClients.delete(sessionId);
-      console.log(`MCP SSE client disconnected: ${sessionId}`);
       client.complete();
     });
 
@@ -64,12 +61,24 @@ export class McpHttpController {
       // Create a mock context for HTTP requests
       const context = {
         reportProgress: async (progress: { progress: number; total: number; message?: string }) => {
-          // For HTTP, we can't report progress in real-time via this endpoint, so we'll just log it
-          console.log(`[MCP Progress - ${method}] ${progress.progress}/${progress.total}: ${progress.message || ''}`);
+          // Silent progress reporting for HTTP
         },
-        log: (message: string) => console.log(`[MCP Tool Log - ${method}] ${message}`),
-        mcpServer: null as any, // Not directly used in HTTP context
-        mcpRequest: null as any, // Not directly used in HTTP context
+        log: {
+          debug: (message: string, data?: any) => {
+            // Silent debug logging for HTTP
+          },
+          error: (message: string, data?: any) => {
+            // Silent error logging for HTTP
+          },
+          info: (message: string, data?: any) => {
+            // Silent info logging for HTTP
+          },
+          warn: (message: string, data?: any) => {
+            // Silent warn logging for HTTP
+          },
+        },
+        mcpServer: null as any,
+        mcpRequest: null as any,
       };
 
       let result: any;
@@ -111,17 +120,20 @@ export class McpHttpController {
           result = await this.governanceTool.getGovernanceStatus(params, context);
           break;
         
+        case 'add-discussion-comment':
+          result = await this.governanceTool.addDiscussionComment(params, context);
+          break;
+
         case 'finalize-discussion':
           result = await this.governanceTool.finalizeDiscussion(params, context);
           break;
-        
+
         default:
           throw new Error(`Unknown MCP method: ${method}`);
       }
 
       return { success: true, result };
     } catch (error) {
-      console.error(`Error executing MCP tool ${request.method}:`, error);
       return { success: false, error: error.message };
     }
   }
@@ -198,6 +210,15 @@ export class McpHttpController {
           name: 'get-governance-status',
           description: 'Get overall governance system status and statistics',
           parameters: {}
+        },
+        {
+          name: 'add-discussion-comment',
+          description: 'Add a comment to an existing discussion',
+          parameters: {
+            discussionId: { type: 'string', required: true, description: 'The discussion ID to add comment to' },
+            content: { type: 'string', required: true, description: 'The comment content' },
+            type: { type: 'string', required: false, enum: ['comment', 'support', 'objection', 'suggestion'], default: 'comment', description: 'The comment type' }
+          }
         },
         {
           name: 'finalize-discussion',

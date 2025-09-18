@@ -88,7 +88,7 @@
                                 </div>
                             </div>
                             <div>
-                                <a href="/agents/{{id}}" class="font-medium text-gray-100 hover:text-gray-300">{{name}}</a>
+                                <a href="/agents/{{urlEncode id}}" class="font-medium text-gray-100 hover:text-gray-300">{{name}}</a>
                                 <p class="text-sm text-gray-500">{{id}}</p>
                             </div>
                         </div>
@@ -119,10 +119,10 @@
                     <td class="p-4 text-gray-400 text-sm">{{formatDate lastActive}}</td>
                     <td class="p-4">
                         <div class="flex items-center space-x-2">
-                            <a href="/agents/{{id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Details">
+                            <a href="/agents/{{urlEncode id}}" class="text-blue-400 hover:text-blue-300 text-sm" title="View Details">
                                 <i data-feather="eye" class="w-4 h-4"></i>
                             </a>
-                            <a href="/agents/{{id}}/permissions" class="text-purple-400 hover:text-purple-300 text-sm" title="View Permissions">
+                            <a href="/agents/{{urlEncode id}}/permissions" class="text-purple-400 hover:text-purple-300 text-sm" title="View Permissions">
                                 <i data-feather="shield" class="w-4 h-4"></i>
                             </a>
                         </div>

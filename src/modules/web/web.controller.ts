@@ -357,6 +357,29 @@ export class WebController {
     }
   }
 
+  @Get('agents/:id/permissions')
+  @Render('agents/permissions')
+  async agentPermissions(@Param('id') id: string) {
+    try {
+      const agent = await this.agentsService.findById(id);
+      const permissions = await this.agentsService.getAgentPermissions(id);
+      
+      return {
+        title: `${agent.name} - Permissions`,
+        agent,
+        permissions: permissions.permissions,
+        roleMatrix: permissions.roleMatrix
+      };
+    } catch (error) {
+      this.logger.error(`Error loading permissions for agent ${id}: ${error.message}`);
+      return {
+        title: 'Agent Permissions - Error',
+        error: error.message,
+        agent: { id, name: 'Unknown Agent' }
+      };
+    }
+  }
+
   @Get('discussions')
   @Render('discussions/list')
   async discussionsList(@Query() query: any) {
