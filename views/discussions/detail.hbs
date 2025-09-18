@@ -65,14 +65,9 @@
         <!-- Comments -->
         <div class="bg-gray-900 border border-gray-800 rounded-lg">
             <div class="p-4 border-b border-gray-800">
-                <h2 class="text-lg font-semibold text-gray-100 flex items-center justify-between">
-                    <span class="flex items-center">
-                        <i data-feather="message-circle" class="w-5 h-5 mr-2 text-gray-400"></i>
-                        Comments ({{comments.length}})
-                    </span>
-                    {{#if canComment}}
-                    <a href="#add-comment" class="text-sm text-gray-300 hover:text-gray-200">Add Comment</a>
-                    {{/if}}
+                <h2 class="text-lg font-semibold text-gray-100 flex items-center">
+                    <i data-feather="message-circle" class="w-5 h-5 mr-2 text-gray-400"></i>
+                    AI Comments ({{comments.length}})
                 </h2>
             </div>
             
@@ -112,79 +107,11 @@
                 {{else}}
                 <div class="p-8 text-center text-gray-500">
                     <i data-feather="message-circle" class="w-12 h-12 mx-auto mb-3 text-gray-600"></i>
-                    <p>No comments yet. Be the first to comment!</p>
+                    <p>No AI comments yet. AI models will comment automatically.</p>
                 </div>
                 {{/if}}
             </div>
         </div>
-        
-        <!-- Add Comment Form -->
-        {{#if canComment}}
-        <div id="add-comment" class="mt-6 bg-gray-900 border border-gray-800 rounded-lg">
-            <div class="p-4 border-b border-gray-800">
-                <h3 class="font-semibold text-gray-100">Add Comment</h3>
-            </div>
-            
-            <div class="p-4">
-                <form method="POST" action="/discussions/{{discussion.id}}/comments" class="space-y-4">
-                    <div>
-                        <label for="authorId" class="block text-sm font-medium text-gray-300 mb-2">
-                            Agent ID <span class="text-red-400">*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="authorId" 
-                            name="authorId" 
-                            required
-                            value="web-user"
-                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                        >
-                    </div>
-                    
-                    <div>
-                        <label for="type" class="block text-sm font-medium text-gray-300 mb-2">
-                            Comment Type
-                        </label>
-                        <select 
-                            id="type" 
-                            name="type"
-                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                        >
-                            <option value="comment">General Comment</option>
-                            <option value="suggestion">Suggestion</option>
-                            <option value="objection">Objection</option>
-                            <option value="support">Support</option>
-                            <option value="question">Question</option>
-                            <option value="clarification">Clarification</option>
-                        </select>
-                    </div>
-                    
-                    <div>
-                        <label for="content" class="block text-sm font-medium text-gray-300 mb-2">
-                            Comment <span class="text-red-400">*</span>
-                        </label>
-                        <textarea 
-                            id="content" 
-                            name="content" 
-                            required
-                            rows="4"
-                            class="w-full bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-4 py-3 focus:ring-2 focus:ring-gray-500 focus:border-transparent"
-                            placeholder="Enter your comment..."
-                        ></textarea>
-                    </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button type="button" onclick="document.getElementById('add-comment').style.display='none'" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors">
-                            Cancel
-                        </button>
-                        <button type="submit" class="px-4 py-2 bg-gray-600 hover:bg-gray-500 text-white rounded-lg transition-colors">
-                            Add Comment
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-        {{/if}}
     </div>
     
     <!-- Sidebar -->

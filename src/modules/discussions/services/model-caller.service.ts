@@ -9,8 +9,8 @@ export class ModelCallerService {
    * Main LLM call dispatcher - exactly like chat-hub
    */
   async callLLM(modelId: string, prompt: string): Promise<string> {
-    const systemPrompt = this.createSystemPrompt(modelId);
-    const fullPrompt = `${systemPrompt}\n\n${prompt}`;
+    // Use the prompt as-is since it already contains the full context from discussion-orchestrator
+    const fullPrompt = prompt;
 
     // Decide which method to use (same logic as chat-hub)
     if (this.shouldUseCursorAgent(modelId)) {
@@ -53,7 +53,8 @@ export class ModelCallerService {
 
       return new Promise((resolve, reject) => {
         const cursorAgent = spawn(command, args, {
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
         });
 
         let stdout = '';
@@ -113,12 +114,12 @@ export class ModelCallerService {
             this.logger.log(`[CURSOR-AGENT DEBUG] Final STDOUT length: ${stdout.length}`);
             this.logger.log(`[CURSOR-AGENT DEBUG] Final STDERR length: ${stderr.length}`);
 
-            if (code === 0 && stdout.trim()) {
+            if (code === 0 && stdout.trim() && this.isValidResponse(stdout.trim())) {
               this.logger.log(`[CURSOR-AGENT DEBUG] SUCCESS - Response length: ${stdout.trim().length}`);
               resolve(stdout.trim());
             } else {
               this.logger.log(`[CURSOR-AGENT DEBUG] FAILURE - Code: ${code}, STDOUT: "${stdout}", STDERR: "${stderr}"`);
-              reject(new Error(`Cursor-agent process failed with code ${code}: ${stderr || 'No error output'}`));
+              reject(new Error(`Cursor-agent process failed with code ${code}: ${stderr || 'Invalid or empty response'}`));
             }
           }
         });
@@ -146,7 +147,7 @@ export class ModelCallerService {
     try {
       this.logger.log(`[AIDER DEBUG] Starting interaction with model: ${modelId}`);
 
-      // Use same parameters as chat-hub
+      // Use same parameters as chat-hub (without map-tokens to avoid repo errors)
       const args = [
         '--model', modelId,
         '--no-pretty',
@@ -157,13 +158,15 @@ export class ModelCallerService {
         '--dry-run',
         '--no-auto-commits',
         '--no-dirty-commits',
+        '--no-git',
         '--timeout', '60',
         '--message', fullPrompt
       ];
 
       return new Promise((resolve, reject) => {
         const aider = spawn('aider', args, {
-          stdio: ['ignore', 'pipe', 'pipe']
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
         });
 
         let stdout = '';
@@ -193,10 +196,10 @@ export class ModelCallerService {
 
             const response = this.extractAiderResponse(stdout);
             
-            if (response && response.trim()) {
+            if (response && response.trim() && this.isValidResponse(response)) {
               resolve(response.trim());
             } else {
-              reject(new Error(`Aider failed for ${modelId}: ${stderr || 'No response'}`));
+              reject(new Error(`Aider failed for ${modelId}: ${stderr || 'Invalid or empty response'}`));
             }
           }
         });
@@ -262,12 +265,13 @@ Responda em português brasileiro.`;
     
     const lines = output.split('\n');
     let contentStart = 0;
+    let contentEnd = lines.length;
     
     // More comprehensive header detection
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
-      // Skip common Aider header patterns
+      // Skip common Aider header patterns and repo-map errors
       if (line.startsWith('Aider v') ||
           line.startsWith('Model:') ||
           line.startsWith('Git repo:') ||
@@ -276,6 +280,8 @@ Responda em português brasileiro.`;
           line.includes('with diff edit format') ||
           line.includes('infinite output') ||
           line.includes('auto refresh') ||
+          line.includes("Repo-map can't include") ||
+          line.includes("Has it been deleted from the file system") ||
           line === '' ||
           line.startsWith('────')) {
         continue;
@@ -286,23 +292,121 @@ Responda em português brasileiro.`;
           line.length > 50 ||
           line.includes('análise') ||
           line.includes('proposta') ||
-          line.includes('técnica')) {
+          line.includes('técnica') ||
+          line.includes('Analisando') ||
+          line.includes('Esta proposta')) {
         contentStart = i;
         break;
       }
     }
     
-    // Extract content from the identified start point
-    const cleanedLines = lines.slice(contentStart);
+    // Find content end (before cost information)
+    for (let i = contentStart; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.includes('Tokens:') || line.includes('Cost:') || line.includes('$0.')) {
+        contentEnd = i;
+        break;
+      }
+    }
+    
+    // Extract content from the identified range
+    const cleanedLines = lines.slice(contentStart, contentEnd);
     let response = cleanedLines.join('\n').trim();
     
-    // Remove any remaining Aider artifacts at the end
+    // Remove any remaining Aider artifacts
     response = response.replace(/Tokens:.*Cost:.*$/gm, '').trim();
+    response = response.replace(/Repo-map can't include.*$/gm, '').trim();
+    response = response.replace(/Has it been deleted from the file system.*$/gm, '').trim();
     
     if (contentStart > 0) {
       this.logger.log(`🧹 Cleaned Aider headers (removed ${contentStart} lines)`);
     }
     
     return response;
+  }
+
+  /**
+   * Validate if response is a valid comment (not an API error)
+   */
+  private isValidResponse(response: string): boolean {
+    if (!response || response.trim().length < 10) {
+      return false;
+    }
+
+    const lowerResponse = response.toLowerCase();
+    
+    // Check for API errors
+    const apiErrorPatterns = [
+      'credit balance is too low',
+      'invalid_request_error',
+      'authentication failed',
+      'api key',
+      'rate limit',
+      'quota exceeded',
+      'billing',
+      'payment required',
+      'unauthorized',
+      'forbidden',
+      'service unavailable',
+      'internal server error',
+      'bad gateway',
+      'timeout',
+      'connection refused',
+      'network error',
+      '"type":"error"',
+      '"error":',
+      'request_id',
+      'anthropic api',
+      'openai api',
+      'your credit'
+    ];
+
+    // Check if response contains API error patterns
+    for (const pattern of apiErrorPatterns) {
+      if (lowerResponse.includes(pattern)) {
+        this.logger.warn(`🚫 Filtered API error response: ${pattern}`);
+        return false;
+      }
+    }
+
+    // Check for JSON error responses
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed.error || parsed.type === 'error') {
+        this.logger.warn(`🚫 Filtered JSON error response`);
+        return false;
+      }
+    } catch {
+      // Not JSON, continue validation
+    }
+
+    // Check if response looks like a proper analysis/comment
+    const validContentPatterns = [
+      'análise',
+      'proposta',
+      'técnica',
+      'implementação',
+      'considera',
+      'sugiro',
+      'recomendo',
+      'viabilidade',
+      'arquitetura',
+      'segurança',
+      'performance',
+      'como ',
+      'esta proposta',
+      'analisando'
+    ];
+
+    const hasValidContent = validContentPatterns.some(pattern => 
+      lowerResponse.includes(pattern)
+    );
+
+    if (!hasValidContent) {
+      this.logger.warn(`🚫 Response doesn't contain valid analysis content`);
+      return false;
+    }
+
+    return true;
   }
 }

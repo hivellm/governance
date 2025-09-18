@@ -159,7 +159,7 @@ export class DiscussionOrchestratorService {
         }
       }
 
-      this.logger.log(`✅ AI Orchestration complete: ${successfulComments}/${selectedModels.length} comments generated`);
+      this.logger.log(`✅ AI Orchestration complete: ${successfulComments.length}/${selectedModels.length} comments generated`);
       
       // Emit completion event
       this.eventEmitter.emit('discussion.ai.orchestration.complete', {
@@ -350,12 +350,14 @@ export class DiscussionOrchestratorService {
       return new Promise((resolve, reject) => {
         const { spawn } = require('child_process');
         
-        const cursorAgent = spawn('cursor-agent', [
-          '--print',
-          '--output-format', 'text',
-          '--model', modelId,
-          '-p', prompt
-        ]);
+      const cursorAgent = spawn('cursor-agent', [
+        '--print',
+        '--output-format', 'text',
+        '--model', modelId,
+        '-p', prompt
+      ], {
+        cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
+      });
 
         let output = '';
         let errorOutput = '';
@@ -376,10 +378,10 @@ export class DiscussionOrchestratorService {
         cursorAgent.on('close', (code) => {
           clearTimeout(timeout);
           
-          if (code === 0 && output.trim()) {
+          if (code === 0 && output.trim() && this.isValidResponse(output.trim())) {
             resolve(output.trim());
           } else {
-            reject(new Error(`Cursor-agent failed: ${errorOutput || 'Unknown error'}`));
+            reject(new Error(`Cursor-agent failed: ${errorOutput || 'Invalid or empty response'}`));
           }
         });
 
@@ -403,7 +405,7 @@ export class DiscussionOrchestratorService {
     return new Promise((resolve, reject) => {
       const { spawn } = require('child_process');
       
-      // Use same parameters as chat-hub
+      // Use same parameters as chat-hub (without map-tokens to avoid repo errors)
       const aider = spawn('aider', [
         '--model', modelId,
         '--no-pretty',
@@ -412,12 +414,14 @@ export class DiscussionOrchestratorService {
         '--exit',
         '--subtree-only',
         '--dry-run',
-        '--map-tokens', '4096',
         '--no-auto-commits',
         '--no-dirty-commits',
+        '--no-git',
         '--timeout', '60',
         '--message', prompt
-      ]);
+      ], {
+        cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
+      });
 
       let output = '';
       let errorOutput = '';
@@ -440,10 +444,10 @@ export class DiscussionOrchestratorService {
         
         const response = this.extractAiderResponse(output);
         
-        if (response && response.trim()) {
+        if (response && response.trim() && this.isValidResponse(response)) {
           resolve(response.trim());
         } else {
-          reject(new Error(`Aider failed: ${errorOutput || 'No response'}`));
+          reject(new Error(`Aider failed: ${errorOutput || 'Invalid or empty response'}`));
         }
       });
     });
@@ -452,9 +456,44 @@ export class DiscussionOrchestratorService {
   // Helper methods
   private extractProposalContent(content: any): string {
     if (typeof content === 'string') return content;
-    if (typeof content === 'object') {
-      if (content.abstract) return `${content.abstract}\n\n${content.motivation || ''}\n\n${content.specification || ''}`;
-      if (content.content) return content.content;
+    if (typeof content === 'object' && content !== null) {
+      // Build comprehensive content from structured proposal
+      let fullContent = '';
+      
+      if (content.abstract) {
+        fullContent += `ABSTRACT:\n${content.abstract}\n\n`;
+      }
+      
+      if (content.motivation) {
+        fullContent += `MOTIVATION:\n${content.motivation}\n\n`;
+      }
+      
+      if (content.specification) {
+        fullContent += `SPECIFICATION:\n${content.specification}\n\n`;
+      }
+      
+      if (content.implementation) {
+        fullContent += `IMPLEMENTATION:\n${content.implementation}\n\n`;
+      }
+      
+      if (content.rationale) {
+        fullContent += `RATIONALE:\n${content.rationale}\n\n`;
+      }
+      
+      if (content.backwards_compatibility) {
+        fullContent += `BACKWARDS COMPATIBILITY:\n${content.backwards_compatibility}\n\n`;
+      }
+      
+      if (content.security_considerations) {
+        fullContent += `SECURITY CONSIDERATIONS:\n${content.security_considerations}\n\n`;
+      }
+      
+      // Fallback to content field or JSON
+      if (!fullContent && content.content) {
+        fullContent = content.content;
+      }
+      
+      return fullContent.trim() || JSON.stringify(content, null, 2);
     }
     return JSON.stringify(content);
   }
@@ -533,32 +572,153 @@ Responda DIRETAMENTE em português brasileiro de forma concisa e técnica.`;
   }
 
   private extractAiderResponse(output: string): string {
-    // Clean Aider headers from response if present (same logic as chat-hub)
-    let response = output;
-    if (output && output.includes('Aider v')) {
-      const lines = output.split('\n');
-      let contentStart = 0;
-
-      // Find where actual content starts (skip Aider headers)
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('Como ') && (line.includes('gpt-') || line.includes('claude-') || line.includes('gemini-'))) {
-          contentStart = i;
-          break;
-        } else if (line.length > 100 && !line.includes('Aider') && !line.includes('Model:') &&
-                   !line.includes('Git') && !line.includes('Repo-map:') && !line.includes('working dir:')) {
-          contentStart = i;
-          break;
-        }
+    if (!output) return '';
+    
+    const lines = output.split('\n');
+    let contentStart = 0;
+    let contentEnd = lines.length;
+    
+    // More comprehensive header detection
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip common Aider header patterns and repo-map errors
+      if (line.startsWith('Aider v') ||
+          line.startsWith('Model:') ||
+          line.startsWith('Git repo:') ||
+          line.startsWith('Repo-map:') ||
+          line.includes('working dir:') ||
+          line.includes('with diff edit format') ||
+          line.includes('infinite output') ||
+          line.includes('auto refresh') ||
+          line.includes("Repo-map can't include") ||
+          line.includes("Has it been deleted from the file system") ||
+          line === '' ||
+          line.startsWith('────')) {
+        continue;
       }
+      
+      // Look for actual content start
+      if (line.startsWith('Como ') || 
+          line.length > 50 ||
+          line.includes('análise') ||
+          line.includes('proposta') ||
+          line.includes('técnica') ||
+          line.includes('Analisando') ||
+          line.includes('Esta proposta')) {
+        contentStart = i;
+        break;
+      }
+    }
+    
+    // Find content end (before cost information)
+    for (let i = contentStart; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.includes('Tokens:') || line.includes('Cost:') || line.includes('$0.')) {
+        contentEnd = i;
+        break;
+      }
+    }
+    
+    // Extract content from the identified range
+    const cleanedLines = lines.slice(contentStart, contentEnd);
+    let response = cleanedLines.join('\n').trim();
+    
+    // Remove any remaining Aider artifacts
+    response = response.replace(/Tokens:.*Cost:.*$/gm, '').trim();
+    response = response.replace(/Repo-map can't include.*$/gm, '').trim();
+    response = response.replace(/Has it been deleted from the file system.*$/gm, '').trim();
+    
+    if (contentStart > 0) {
+      this.logger.log(`🧹 Cleaned Aider headers (removed ${contentStart} lines)`);
+    }
+    
+    return response;
+  }
 
-      if (contentStart > 0) {
-        response = lines.slice(contentStart).join('\n').trim();
-        this.logger.log(`🧹 Cleaned Aider headers (removed ${contentStart} lines)`);
+  /**
+   * Validate if response is a valid comment (not an API error)
+   */
+  private isValidResponse(response: string): boolean {
+    if (!response || response.trim().length < 10) {
+      return false;
+    }
+
+    const lowerResponse = response.toLowerCase();
+    
+    // Check for API errors
+    const apiErrorPatterns = [
+      'credit balance is too low',
+      'invalid_request_error',
+      'authentication failed',
+      'api key',
+      'rate limit',
+      'quota exceeded',
+      'billing',
+      'payment required',
+      'unauthorized',
+      'forbidden',
+      'service unavailable',
+      'internal server error',
+      'bad gateway',
+      'timeout',
+      'connection refused',
+      'network error',
+      '"type":"error"',
+      '"error":',
+      'request_id',
+      'anthropic api',
+      'openai api',
+      'your credit'
+    ];
+
+    // Check if response contains API error patterns
+    for (const pattern of apiErrorPatterns) {
+      if (lowerResponse.includes(pattern)) {
+        this.logger.warn(`🚫 Filtered API error response: ${pattern}`);
+        return false;
       }
     }
 
-    return response.trim();
+    // Check for JSON error responses
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed.error || parsed.type === 'error') {
+        this.logger.warn(`🚫 Filtered JSON error response`);
+        return false;
+      }
+    } catch {
+      // Not JSON, continue validation
+    }
+
+    // Check if response looks like a proper analysis/comment
+    const validContentPatterns = [
+      'análise',
+      'proposta',
+      'técnica',
+      'implementação',
+      'considera',
+      'sugiro',
+      'recomendo',
+      'viabilidade',
+      'arquitetura',
+      'segurança',
+      'performance',
+      'como ',
+      'esta proposta',
+      'analisando'
+    ];
+
+    const hasValidContent = validContentPatterns.some(pattern => 
+      lowerResponse.includes(pattern)
+    );
+
+    if (!hasValidContent) {
+      this.logger.warn(`🚫 Response doesn't contain valid analysis content`);
+      return false;
+    }
+
+    return true;
   }
 
   private delay(ms: number): Promise<void> {

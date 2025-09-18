@@ -231,7 +231,9 @@ Responda em português brasileiro, sendo direto e técnico.`
         '--output-format', 'text',
         '--model', modelId,
         '-p', prompt
-      ]);
+      ], {
+        cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
+      });
 
       let output = '';
       let errorOutput = '';
@@ -252,10 +254,10 @@ Responda em português brasileiro, sendo direto e técnico.`
       cursorAgent.on('close', (code) => {
         clearTimeout(timeout);
         
-        if (code === 0 && output.trim()) {
+        if (code === 0 && output.trim() && this.isValidResponse(output.trim())) {
           resolve(output.trim());
         } else {
-          reject(new Error(`Cursor-agent failed for ${modelId}: ${errorOutput || 'Unknown error'}`));
+          reject(new Error(`Cursor-agent failed for ${modelId}: ${errorOutput || 'Invalid or empty response'}`));
         }
       });
 
@@ -271,7 +273,7 @@ Responda em português brasileiro, sendo direto e técnico.`
    */
   private async callAiderModel(modelId: string, prompt: string, timeoutMs: number): Promise<string> {
     return new Promise((resolve, reject) => {
-      // Use same parameters as chat-hub
+      // Use same parameters as chat-hub (without map-tokens to avoid repo errors)
       const aiderArgs = [
         '--model', modelId,
         '--no-pretty',
@@ -282,11 +284,14 @@ Responda em português brasileiro, sendo direto e técnico.`
         '--dry-run',
         '--no-auto-commits',
         '--no-dirty-commits',
+        '--no-git',
         '--timeout', '60',
         '--message', prompt
       ];
 
-      const aider = spawn('aider', aiderArgs);
+      const aider = spawn('aider', aiderArgs, {
+        cwd: process.cwd().includes('/governance') ? process.cwd().replace('/governance', '') : process.cwd() // Execute from project root
+      });
 
       let output = '';
       let errorOutput = '';
@@ -310,10 +315,10 @@ Responda em português brasileiro, sendo direto e técnico.`
         // Extract response from aider output
         const response = this.extractAiderResponse(output);
         
-        if (response && response.trim()) {
+        if (response && response.trim() && this.isValidResponse(response)) {
           resolve(response.trim());
         } else {
-          reject(new Error(`Aider failed for ${modelId}: ${errorOutput || 'No response extracted'}`));
+          reject(new Error(`Aider failed for ${modelId}: ${errorOutput || 'Invalid or empty response'}`));
         }
       });
 
@@ -325,35 +330,156 @@ Responda em português brasileiro, sendo direto e técnico.`
   }
 
   /**
-   * Extract response from aider output (same logic as chat-hub)
+   * Extract response from aider output (improved header removal)
    */
   private extractAiderResponse(output: string): string {
-    // Clean Aider headers from response if present
-    let response = output;
-    if (output && output.includes('Aider v')) {
-      const lines = output.split('\n');
-      let contentStart = 0;
-
-      // Find where actual content starts (skip Aider headers)
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.startsWith('Como ') && (line.includes('gpt-') || line.includes('claude-') || line.includes('gemini-'))) {
-          contentStart = i;
-          break;
-        } else if (line.length > 100 && !line.includes('Aider') && !line.includes('Model:') &&
-                   !line.includes('Git') && !line.includes('Repo-map:') && !line.includes('working dir:')) {
-          contentStart = i;
-          break;
-        }
+    if (!output) return '';
+    
+    const lines = output.split('\n');
+    let contentStart = 0;
+    let contentEnd = lines.length;
+    
+    // More comprehensive header detection
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      
+      // Skip common Aider header patterns and repo-map errors
+      if (line.startsWith('Aider v') ||
+          line.startsWith('Model:') ||
+          line.startsWith('Git repo:') ||
+          line.startsWith('Repo-map:') ||
+          line.includes('working dir:') ||
+          line.includes('with diff edit format') ||
+          line.includes('infinite output') ||
+          line.includes('auto refresh') ||
+          line.includes("Repo-map can't include") ||
+          line.includes("Has it been deleted from the file system") ||
+          line === '' ||
+          line.startsWith('────')) {
+        continue;
       }
+      
+      // Look for actual content start
+      if (line.startsWith('Como ') || 
+          line.length > 50 ||
+          line.includes('análise') ||
+          line.includes('proposta') ||
+          line.includes('técnica') ||
+          line.includes('Analisando') ||
+          line.includes('Esta proposta')) {
+        contentStart = i;
+        break;
+      }
+    }
+    
+    // Find content end (before cost information)
+    for (let i = contentStart; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.includes('Tokens:') || line.includes('Cost:') || line.includes('$0.')) {
+        contentEnd = i;
+        break;
+      }
+    }
+    
+    // Extract content from the identified range
+    const cleanedLines = lines.slice(contentStart, contentEnd);
+    let response = cleanedLines.join('\n').trim();
+    
+    // Remove any remaining Aider artifacts
+    response = response.replace(/Tokens:.*Cost:.*$/gm, '').trim();
+    response = response.replace(/Repo-map can't include.*$/gm, '').trim();
+    response = response.replace(/Has it been deleted from the file system.*$/gm, '').trim();
+    
+    if (contentStart > 0) {
+      console.log(`🧹 Cleaned Aider headers (removed ${contentStart} lines)`);
+    }
+    
+    return response;
+  }
 
-      if (contentStart > 0) {
-        response = lines.slice(contentStart).join('\n').trim();
-        console.log(`🧹 Cleaned Aider headers (removed ${contentStart} lines)`);
+  /**
+   * Validate if response is a valid comment (not an API error)
+   */
+  private isValidResponse(response: string): boolean {
+    if (!response || response.trim().length < 10) {
+      return false;
+    }
+
+    const lowerResponse = response.toLowerCase();
+    
+    // Check for API errors
+    const apiErrorPatterns = [
+      'credit balance is too low',
+      'invalid_request_error',
+      'authentication failed',
+      'api key',
+      'rate limit',
+      'quota exceeded',
+      'billing',
+      'payment required',
+      'unauthorized',
+      'forbidden',
+      'service unavailable',
+      'internal server error',
+      'bad gateway',
+      'timeout',
+      'connection refused',
+      'network error',
+      '"type":"error"',
+      '"error":',
+      'request_id',
+      'anthropic api',
+      'openai api',
+      'your credit'
+    ];
+
+    // Check if response contains API error patterns
+    for (const pattern of apiErrorPatterns) {
+      if (lowerResponse.includes(pattern)) {
+        console.log(`🚫 Filtered API error response: ${pattern}`);
+        return false;
       }
     }
 
-    return response.trim();
+    // Check for JSON error responses
+    try {
+      const parsed = JSON.parse(response);
+      if (parsed.error || parsed.type === 'error') {
+        console.log(`🚫 Filtered JSON error response`);
+        return false;
+      }
+    } catch {
+      // Not JSON, continue validation
+    }
+
+    // Check if response looks like a proper analysis/comment
+    const validContentPatterns = [
+      'análise',
+      'proposta',
+      'técnica',
+      'implementação',
+      'considera',
+      'sugiro',
+      'recomendo',
+      'viabilidade',
+      'arquitetura',
+      'segurança',
+      'performance',
+      'como ',
+      'esta proposta',
+      'analisando'
+    ];
+
+    const hasValidContent = validContentPatterns.some(pattern => 
+      lowerResponse.includes(pattern)
+    );
+
+    if (!hasValidContent) {
+      console.log(`🚫 Response doesn't contain valid analysis content`);
+      return false;
+    }
+
+    return true;
   }
 
   /**
