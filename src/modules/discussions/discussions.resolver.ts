@@ -11,6 +11,6 @@ export class DiscussionsResolver {
   @Query(() => String, { description: 'Get discussions module status' })
   async discussionsStatus(): Promise<string> {
     this.logger.log('GraphQL: Getting discussions status');
-    return 'DiscussionsService operational - Phase 2 implementation complete';
+    return this.discussionsService.getStatus();
   }
 }

@@ -641,6 +641,22 @@ export class DiscussionsService {
     return this.mapRowToComment(row);
   }
 
+  /**
+   * Get discussions module status
+   */
+  async getStatus(): Promise<string> {
+    try {
+      const db = this.databaseService.getDatabase();
+      const activeCount = db.prepare('SELECT COUNT(*) as count FROM discussions WHERE status = ?').get('active') as { count: number };
+      const totalComments = db.prepare('SELECT COUNT(*) as count FROM comments').get() as { count: number };
+
+      return `Discussions module is operational. ${activeCount.count} active discussions, ${totalComments.count} total comments.`;
+    } catch (error) {
+      this.logger.error(`Failed to get discussions status: ${error.message}`);
+      return 'Discussions module status: Error retrieving statistics';
+    }
+  }
+
   private mapRowToComment(row: any): IComment {
     const reactionsData = JSON.parse(row.reactions || '{}');
     
